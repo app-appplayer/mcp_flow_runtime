@@ -151,7 +151,7 @@ void main() {
         await stateManager.defineVariable(
           'name',
           type: StateType.string,
-          initial: '',
+          initial: 'ABC',  // Valid initial value
           constraints: StateConstraints(
             minLength: 3,
             maxLength: 10,
@@ -183,7 +183,7 @@ void main() {
         await stateManager.defineVariable(
           'items',
           type: StateType.array,
-          initial: [],
+          initial: [1],  // Valid initial value with at least 1 item
           constraints: StateConstraints(
             minLength: 1,  // Using minLength for array items
             maxLength: 5,  // Using maxLength for array items

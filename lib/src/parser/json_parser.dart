@@ -15,7 +15,19 @@ class JsonFlowParser {
   /// Parse flow definition from JSON
   FlowDefinition parse(Map<String, dynamic> json) {
     try {
-      return FlowDefinition.fromJson(json);
+      // Ensure proper type casting
+      final typedJson = <String, dynamic>{};
+      json.forEach((key, value) {
+        if (value is Map) {
+          typedJson[key] = _convertMap(value);
+        } else if (value is List) {
+          typedJson[key] = _convertList(value);
+        } else {
+          typedJson[key] = value;
+        }
+      });
+      
+      return FlowDefinition.fromJson(typedJson);
     } catch (e, stackTrace) {
       _logger.severe('Failed to parse flow JSON', e, stackTrace);
       throw FlowParseError(
@@ -24,6 +36,34 @@ class JsonFlowParser {
         stackTrace: stackTrace,
       );
     }
+  }
+  
+  /// Convert dynamic map to typed map
+  Map<String, dynamic> _convertMap(Map map) {
+    final result = <String, dynamic>{};
+    map.forEach((key, value) {
+      if (value is Map) {
+        result[key.toString()] = _convertMap(value);
+      } else if (value is List) {
+        result[key.toString()] = _convertList(value);
+      } else {
+        result[key.toString()] = value;
+      }
+    });
+    return result;
+  }
+  
+  /// Convert dynamic list to typed list
+  List<dynamic> _convertList(List list) {
+    return list.map((item) {
+      if (item is Map) {
+        return _convertMap(item);
+      } else if (item is List) {
+        return _convertList(item);
+      } else {
+        return item;
+      }
+    }).toList();
   }
 
   /// Load flow definition from file

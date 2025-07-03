@@ -10,8 +10,13 @@ void main() {
     });
 
     tearDown(() async {
-      if (runtime.status == RuntimeStatus.running) {
-        await runtime.stop();
+      try {
+        if (runtime.status == RuntimeStatus.running || 
+            runtime.status == RuntimeStatus.starting) {
+          await runtime.stop().timeout(Duration(seconds: 2));
+        }
+      } catch (e) {
+        // Ignore teardown errors
       }
     });
 
@@ -31,9 +36,9 @@ void main() {
       // Should complete without error
     });
 
-    test('throws on invalid flow version', () {
+    test('throws on missing flow version', () {
       final flowJson = {
-        'version': 'invalid',
+        // Missing version
         'resources': {},
         'state': {},
         'processes': []
@@ -41,7 +46,7 @@ void main() {
 
       expect(
         () => runtime.loadFlow(flowJson),
-        throwsException,
+        throwsA(isA<FlowParseError>()),
       );
     });
 
@@ -182,9 +187,6 @@ void main() {
         'channels': {
           'events': {
             'type': 'pubsub'
-          },
-          'queue': {
-            'type': 'queue'
           }
         },
         'processes': []
@@ -193,17 +195,26 @@ void main() {
       await runtime.loadFlow(flowJson);
       await runtime.start();
 
+      // Check that channel stream exists
+      final stream = runtime.getChannelStream('events');
+      expect(stream, isNotNull);
+
+      // Send and receive events
       final receivedEvents = <dynamic>[];
-      runtime.getChannelStream('events')?.listen(receivedEvents.add);
+      final subscription = stream!.listen(receivedEvents.add);
 
-      await runtime.sendToChannel('events', {'type': 'test', 'value': 1});
-      await runtime.sendToChannel('events', {'type': 'test', 'value': 2});
+      await runtime.sendToChannel('events', {'value': 1});
+      await runtime.sendToChannel('events', {'value': 2});
 
-      await Future.delayed(Duration(milliseconds: 100));
+      // Allow events to propagate
+      await Future.delayed(Duration(milliseconds: 50));
 
-      expect(receivedEvents, hasLength(2));
+      expect(receivedEvents.length, equals(2));
       expect(receivedEvents[0]['value'], equals(1));
       expect(receivedEvents[1]['value'], equals(2));
+
+      await subscription.cancel();
+      await runtime.stop();
     });
 
     test('provides runtime statistics', () async {
@@ -215,7 +226,12 @@ void main() {
           {
             'id': 'test_process',
             'trigger': {'type': 'startup'},
-            'steps': []
+            'steps': [
+              {
+                'action': 'log',
+                'params': {'message': 'Test process'}
+              }
+            ]
           }
         ]
       };

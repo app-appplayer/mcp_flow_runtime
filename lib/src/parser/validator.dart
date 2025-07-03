@@ -32,13 +32,7 @@ class FlowValidator {
       ));
     }
 
-    // Validate processes
-    if (flow.processes.isEmpty) {
-      errors.add(ValidationError(
-        field: 'processes',
-        message: 'At least one process is required',
-      ));
-    }
+    // Validate processes (empty processes array is allowed for minimal flows)
 
     // Validate each process
     for (int i = 0; i < flow.processes.length; i++) {

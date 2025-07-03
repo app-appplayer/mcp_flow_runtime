@@ -133,6 +133,12 @@ class StateManager {
     _validateValue(name, value, variable.type, variable.constraints);
 
     final oldValue = variable.currentValue;
+    
+    // Check if value actually changed
+    if (_areEqual(oldValue, value)) {
+      return; // No change, don't fire event
+    }
+    
     variable.currentValue = value;
 
     // Store if persistent
@@ -260,11 +266,15 @@ class StateManager {
         break;
 
       case StateType.object:
-        if (value is! Map<String, dynamic>) {
+        if (value is! Map) {
           throw errors.StateError(
             'Expected object value for $name, got ${value.runtimeType}',
             stateVariable: name,
           );
+        }
+        // Convert to properly typed map
+        if (value is! Map<String, dynamic>) {
+          value = Map<String, dynamic>.from(value);
         }
         break;
 
@@ -320,6 +330,22 @@ class StateManager {
           }
         }
       }
+      
+      if (type == StateType.array) {
+        final arrValue = value as List;
+        if (constraints.minLength != null && arrValue.length < constraints.minLength!) {
+          throw errors.StateError(
+            'Array length ${arrValue.length} is below minimum ${constraints.minLength} for $name',
+            stateVariable: name,
+          );
+        }
+        if (constraints.maxLength != null && arrValue.length > constraints.maxLength!) {
+          throw errors.StateError(
+            'Array length ${arrValue.length} is above maximum ${constraints.maxLength} for $name',
+            stateVariable: name,
+          );
+        }
+      }
 
       if (constraints.enum$ != null) {
         if (!constraints.enum$!.contains(value)) {
@@ -330,5 +356,29 @@ class StateManager {
         }
       }
     }
+  }
+  
+  /// Check if two values are equal
+  bool _areEqual(dynamic a, dynamic b) {
+    if (a == b) return true;
+    
+    // Deep equality for collections
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (int i = 0; i < a.length; i++) {
+        if (!_areEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    
+    if (a is Map && b is Map) {
+      if (a.length != b.length) return false;
+      for (final key in a.keys) {
+        if (!b.containsKey(key) || !_areEqual(a[key], b[key])) return false;
+      }
+      return true;
+    }
+    
+    return false;
   }
 }
