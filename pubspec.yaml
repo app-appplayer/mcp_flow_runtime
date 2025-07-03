@@ -1,0 +1,55 @@
+name: mcp_flow_runtime
+description: Runtime for executing hardware control flows and IoT orchestration using MCP Flow DSL with process scheduling and state management.
+version: 0.1.0
+homepage: https://app-appplayer.github.io/makemind
+repository: https://github.com/app-appplayer/mcp_flow_runtime
+documentation: https://pub.dev/documentation/mcp_flow_runtime/latest/
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  # Core utilities
+  collection: ^1.18.0
+  async: ^2.11.0
+  logging: ^1.2.0
+  path: ^1.9.0
+  meta: ^1.11.0
+  
+  # JSON parsing
+  json_annotation: ^4.8.0
+  
+  # Expression evaluation
+  expressions: ^0.2.5
+  
+  # Security
+  crypto: ^3.0.3
+  jose: ^0.3.4
+  
+  # State persistence
+  hive: ^2.2.3
+  
+  # Event handling
+  event_bus: ^2.0.0
+  
+  # Process management
+  equatable: ^2.0.5
+  
+  # Hardware interfaces (conditional)
+  # These will be imported conditionally based on platform
+  # flutter_gpiod: ^0.5.0
+  # dart_periphery: ^0.9.0
+  # modbus_client: ^1.0.0
+
+dev_dependencies:
+  test: ^1.24.9
+  mockito: ^5.4.4
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  lints: ^3.0.0
+
+topics:
+  - mcp
+  - iot
+  - hardware
+  - dart
+  - runtime
