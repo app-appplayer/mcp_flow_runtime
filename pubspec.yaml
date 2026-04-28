@@ -1,9 +1,10 @@
 name: mcp_flow_runtime
 description: Runtime for executing hardware control flows and IoT orchestration using MCP Flow DSL with process scheduling and state management.
-version: 0.1.0
+version: 0.2.0
 homepage: https://app-appplayer.github.io/makemind
 repository: https://github.com/app-appplayer/mcp_flow_runtime
-documentation: https://pub.dev/documentation/mcp_flow_runtime/latest/
+issue_tracker: https://github.com/app-appplayer/mcp_flow_runtime/issues
+
 environment:
   sdk: '>=3.0.0 <4.0.0'
 
@@ -24,6 +25,7 @@ dependencies:
   # Security
   crypto: ^3.0.3
   jose: ^0.3.4
+  encrypt: ^5.0.3
   
   # State persistence
   hive: ^2.2.3
@@ -33,6 +35,12 @@ dependencies:
   
   # Process management
   equatable: ^2.0.5
+  
+  # Scheduling
+  cron: ^0.6.0
+
+  # Bundle integration
+  mcp_bundle: ^0.3.0
   
   # Hardware interfaces (conditional)
   # These will be imported conditionally based on platform
@@ -46,6 +54,7 @@ dev_dependencies:
   build_runner: ^2.4.7
   json_serializable: ^6.7.1
   lints: ^3.0.0
+  mcp_server: ^1.0.4
 
 topics:
   - mcp

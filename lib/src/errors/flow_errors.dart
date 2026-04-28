@@ -1,123 +1,139 @@
 /// Flow runtime error definitions
 
+import '../parser/validator.dart' show ValidationError;
+export '../parser/validator.dart' show ValidationSeverity, ValidationError;
+
+
 /// Base class for all flow runtime errors
-class FlowError implements Exception {
+abstract class FlowError implements Exception {
+  final String code;
   final String message;
-  final dynamic cause;
+  final Object? cause;
   final StackTrace? stackTrace;
 
-  const FlowError(this.message, {this.cause, this.stackTrace});
+  const FlowError(this.code, this.message, {this.cause, this.stackTrace});
 
   @override
-  String toString() => 'FlowError: $message${cause != null ? ' (caused by: $cause)' : ''}';
+  String toString() => '[$code] $message';
+}
+
+/// Concrete FlowError for general use cases
+class ConcreteFlowError extends FlowError {
+  const ConcreteFlowError(
+    super.code,
+    super.message, {
+    super.cause,
+    super.stackTrace,
+  });
 }
 
 /// Error during flow parsing
 class FlowParseError extends FlowError {
-  const FlowParseError(super.message, {super.cause, super.stackTrace});
+  final String? field;
+
+  const FlowParseError(
+    String message, {
+    this.field,
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('PARSE_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'FlowParseError: $message';
+  String toString() => '[$code] $message${field != null ? ' (field: $field)' : ''}';
 }
 
 /// Error during flow validation
 class FlowValidationError extends FlowError {
-  final String field;
-  final dynamic value;
+  final List<ValidationError> errors;
 
   const FlowValidationError(
-    super.message, {
-    required this.field,
-    this.value,
-    super.cause,
-    super.stackTrace,
-  });
+    String message, {
+    required this.errors,
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('VALIDATION_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'FlowValidationError: $field - $message';
+  String toString() => '[$code] $message (${errors.length} error(s))';
 }
 
 /// Error during process execution
 class ProcessExecutionError extends FlowError {
   final String processId;
   final String? actionType;
+  final int? stepIndex;
 
   const ProcessExecutionError(
-    super.message, {
+    String message, {
     required this.processId,
     this.actionType,
-    super.cause,
-    super.stackTrace,
-  });
+    this.stepIndex,
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('PROCESS_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'ProcessExecutionError[$processId${actionType != null ? ':$actionType' : ''}]: $message';
+  String toString() => '[$code] $message (process: $processId${stepIndex != null ? ', step: $stepIndex' : ''}${actionType != null ? ', action: $actionType' : ''})';
 }
 
 /// Error accessing hardware resources
 class HardwareError extends FlowError {
   final String resourceId;
   final String resourceType;
+  final int? errorCode;
 
   const HardwareError(
-    super.message, {
+    String message, {
     required this.resourceId,
     required this.resourceType,
-    super.cause,
-    super.stackTrace,
-  });
+    this.errorCode,
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('HARDWARE_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'HardwareError[$resourceType:$resourceId]: $message';
+  String toString() => '[$code] $message (resource: $resourceType:$resourceId${errorCode != null ? ', errno: $errorCode' : ''})';
 }
 
 /// Error in state management
-class StateError extends FlowError {
-  final String stateVariable;
+class FlowStateError extends FlowError {
+  final String? variableName;
 
-  const StateError(
-    super.message, {
-    required this.stateVariable,
-    super.cause,
-    super.stackTrace,
-  });
+  const FlowStateError(
+    String message, {
+    this.variableName,
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('STATE_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'StateError[$stateVariable]: $message';
+  String toString() => '[$code] $message${variableName != null ? ' (variable: $variableName)' : ''}';
 }
 
 /// Error in MCP communication
 class McpError extends FlowError {
-  final String? toolName;
-  final String? resourceUri;
+  final String? method;
+  final int? mcpErrorCode;
 
   const McpError(
-    super.message, {
-    this.toolName,
-    this.resourceUri,
-    super.cause,
-    super.stackTrace,
-  });
+    String message, {
+    this.method,
+    this.mcpErrorCode,
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('MCP_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'McpError${toolName != null ? '[$toolName]' : ''}${resourceUri != null ? '[$resourceUri]' : ''}: $message';
+  String toString() => '[$code] $message${method != null ? ' (method: $method)' : ''}${mcpErrorCode != null ? ' (mcpError: $mcpErrorCode)' : ''}';
 }
 
 /// Security/authorization error
 class SecurityError extends FlowError {
-  final String? action;
-  final String? resource;
-
   const SecurityError(
-    super.message, {
-    this.action,
-    this.resource,
-    super.cause,
-    super.stackTrace,
-  });
-
-  @override
-  String toString() => 'SecurityError${action != null ? '[action=$action]' : ''}${resource != null ? '[resource=$resource]' : ''}: $message';
+    String message, {
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('SECURITY_ERROR', message, cause: cause, stackTrace: stackTrace);
 }
 
 /// Resource limit exceeded error
@@ -127,16 +143,16 @@ class ResourceLimitError extends FlowError {
   final int requested;
 
   const ResourceLimitError(
-    super.message, {
+    String message, {
     required this.resourceType,
     required this.limit,
     required this.requested,
-    super.cause,
-    super.stackTrace,
-  });
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('RESOURCE_LIMIT_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'ResourceLimitError[$resourceType]: $message (limit: $limit, requested: $requested)';
+  String toString() => '[$code] $message (resource: $resourceType, limit: $limit, requested: $requested)';
 }
 
 /// Timeout error
@@ -145,13 +161,13 @@ class TimeoutError extends FlowError {
   final String operation;
 
   const TimeoutError(
-    super.message, {
+    String message, {
     required this.timeout,
     required this.operation,
-    super.cause,
-    super.stackTrace,
-  });
+    Object? cause,
+    StackTrace? stackTrace,
+  }) : super('TIMEOUT_ERROR', message, cause: cause, stackTrace: stackTrace);
 
   @override
-  String toString() => 'TimeoutError[$operation]: $message (timeout: ${timeout.inMilliseconds}ms)';
+  String toString() => '[$code] $message (operation: $operation, timeout: ${timeout.inMilliseconds}ms)';
 }

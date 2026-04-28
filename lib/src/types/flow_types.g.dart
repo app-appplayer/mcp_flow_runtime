@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// Manually updated to match flow_types.dart changes (2026-03-25)
 
 part of 'flow_types.dart';
 
@@ -9,11 +10,14 @@ part of 'flow_types.dart';
 FlowDefinition _$FlowDefinitionFromJson(Map<String, dynamic> json) =>
     FlowDefinition(
       schema: json[r'$schema'] as String?,
-      version: json['version'] as String,
-      metadata: json['metadata'] == null
+      version: json['version'] as String? ?? '1.0.0',
+      metadata: json['metadata'] != null
+          ? FlowMetadata.fromJson(json['metadata'] as Map<String, dynamic>)
+          : FlowMetadata(name: json['version'] as String? ?? 'unnamed'),
+      configuration: json['configuration'] == null
           ? null
-          : FlowMetadata.fromJson(json['metadata'] as Map<String, dynamic>),
-      configuration: json['configuration'] as Map<String, dynamic>?,
+          : FlowConfiguration.fromJson(
+              json['configuration'] as Map<String, dynamic>),
       resources: (json['resources'] as Map<String, dynamic>?)?.map(
             (k, e) => MapEntry(
                 k, ResourceDefinition.fromJson(e as Map<String, dynamic>)),
@@ -25,9 +29,10 @@ FlowDefinition _$FlowDefinitionFromJson(Map<String, dynamic> json) =>
           ) ??
           const {},
       channels: (json['channels'] as Map<String, dynamic>?)?.map(
-        (k, e) =>
-            MapEntry(k, ChannelDefinition.fromJson(e as Map<String, dynamic>)),
-      ),
+            (k, e) => MapEntry(
+                k, ChannelDefinition.fromJson(e as Map<String, dynamic>)),
+          ) ??
+          const {},
       synchronization: json['synchronization'] == null
           ? null
           : SynchronizationDefinition.fromJson(
@@ -38,22 +43,58 @@ FlowDefinition _$FlowDefinitionFromJson(Map<String, dynamic> json) =>
       events: (json['events'] as List<dynamic>?)
           ?.map((e) => EventDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
-      uiDefinitions: json['ui_definitions'] as Map<String, dynamic>?,
+      uiDefinitions: json['uiDefinitions'] as Map<String, dynamic>?,
     );
 
 Map<String, dynamic> _$FlowDefinitionToJson(FlowDefinition instance) =>
     <String, dynamic>{
       r'$schema': instance.schema,
       'version': instance.version,
-      'metadata': instance.metadata,
-      'configuration': instance.configuration,
-      'resources': instance.resources,
-      'state': instance.state,
-      'channels': instance.channels,
-      'synchronization': instance.synchronization,
-      'processes': instance.processes,
-      'events': instance.events,
-      'ui_definitions': instance.uiDefinitions,
+      'metadata': instance.metadata.toJson(),
+      'configuration': instance.configuration?.toJson(),
+      'resources': instance.resources.map((k, e) => MapEntry(k, e.toJson())),
+      'state': instance.state.map((k, e) => MapEntry(k, e.toJson())),
+      'channels': instance.channels.map((k, e) => MapEntry(k, e.toJson())),
+      'synchronization': instance.synchronization?.toJson(),
+      'processes': instance.processes.map((e) => e.toJson()).toList(),
+      'events': instance.events?.map((e) => e.toJson()).toList(),
+      'uiDefinitions': instance.uiDefinitions,
+    };
+
+FlowConfiguration _$FlowConfigurationFromJson(Map<String, dynamic> json) =>
+    FlowConfiguration(
+      hal: json['hal'] as Map<String, dynamic>?,
+      runtime: json['runtime'] == null
+          ? null
+          : RuntimeLimitsConfig.fromJson(
+              json['runtime'] as Map<String, dynamic>),
+      mcp: json['mcp'] == null
+          ? null
+          : McpConfig.fromJson(json['mcp'] as Map<String, dynamic>),
+      system: json['system'] as Map<String, dynamic>?,
+    );
+
+Map<String, dynamic> _$FlowConfigurationToJson(FlowConfiguration instance) =>
+    <String, dynamic>{
+      'hal': instance.hal,
+      'runtime': instance.runtime?.toJson(),
+      'mcp': instance.mcp?.toJson(),
+      'system': instance.system,
+    };
+
+RuntimeLimitsConfig _$RuntimeLimitsConfigFromJson(Map<String, dynamic> json) =>
+    RuntimeLimitsConfig(
+      tickRateMs: (json['tickRateMs'] as num?)?.toInt(),
+      maxProcesses: (json['maxProcesses'] as num?)?.toInt(),
+      maxMemoryKB: (json['maxMemoryKB'] as num?)?.toInt(),
+    );
+
+Map<String, dynamic> _$RuntimeLimitsConfigToJson(
+        RuntimeLimitsConfig instance) =>
+    <String, dynamic>{
+      'tickRateMs': instance.tickRateMs,
+      'maxProcesses': instance.maxProcesses,
+      'maxMemoryKB': instance.maxMemoryKB,
     };
 
 FlowMetadata _$FlowMetadataFromJson(Map<String, dynamic> json) => FlowMetadata(
@@ -66,7 +107,6 @@ FlowMetadata _$FlowMetadataFromJson(Map<String, dynamic> json) => FlowMetadata(
       modified: json['modified'] == null
           ? null
           : DateTime.parse(json['modified'] as String),
-      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList(),
     );
 
 Map<String, dynamic> _$FlowMetadataToJson(FlowMetadata instance) =>
@@ -76,7 +116,6 @@ Map<String, dynamic> _$FlowMetadataToJson(FlowMetadata instance) =>
       'author': instance.author,
       'created': instance.created?.toIso8601String(),
       'modified': instance.modified?.toIso8601String(),
-      'tags': instance.tags,
     };
 
 ResourceDefinition _$ResourceDefinitionFromJson(Map<String, dynamic> json) =>
@@ -106,10 +145,10 @@ Map<String, dynamic> _$ResourceDefinitionToJson(ResourceDefinition instance) =>
       'type': instance.type,
       'config': instance.config,
       'capabilities': instance.capabilities,
-      'mcp': instance.mcp,
-      'security': instance.security,
-      'safety': instance.safety,
-      'errorHandling': instance.errorHandling,
+      'mcp': instance.mcp?.toJson(),
+      'security': instance.security?.toJson(),
+      'safety': instance.safety?.toJson(),
+      'errorHandling': instance.errorHandling?.toJson(),
     };
 
 StateDefinition _$StateDefinitionFromJson(Map<String, dynamic> json) =>
@@ -132,8 +171,8 @@ Map<String, dynamic> _$StateDefinitionToJson(StateDefinition instance) =>
       'type': _$StateTypeEnumMap[instance.type]!,
       'initial': instance.initial,
       'persistent': instance.persistent,
-      'constraints': instance.constraints,
-      'security': instance.security,
+      'constraints': instance.constraints?.toJson(),
+      'security': instance.security?.toJson(),
     };
 
 const _$StateTypeEnumMap = {
@@ -142,6 +181,7 @@ const _$StateTypeEnumMap = {
   StateType.string: 'string',
   StateType.object: 'object',
   StateType.array: 'array',
+  StateType.any: 'any',
 };
 
 StateConstraints _$StateConstraintsFromJson(Map<String, dynamic> json) =>
@@ -151,7 +191,10 @@ StateConstraints _$StateConstraintsFromJson(Map<String, dynamic> json) =>
       minLength: (json['minLength'] as num?)?.toInt(),
       maxLength: (json['maxLength'] as num?)?.toInt(),
       pattern: json['pattern'] as String?,
-      enum$: json[r'enum$'] as List<dynamic>?,
+      enum$: json['enum'] as List<dynamic>?,
+      minItems: (json['minItems'] as num?)?.toInt(),
+      maxItems: (json['maxItems'] as num?)?.toInt(),
+      validate: json['validate'] as String?,
     );
 
 Map<String, dynamic> _$StateConstraintsToJson(StateConstraints instance) =>
@@ -161,18 +204,22 @@ Map<String, dynamic> _$StateConstraintsToJson(StateConstraints instance) =>
       'minLength': instance.minLength,
       'maxLength': instance.maxLength,
       'pattern': instance.pattern,
-      r'enum$': instance.enum$,
+      'enum': instance.enum$,
+      'minItems': instance.minItems,
+      'maxItems': instance.maxItems,
+      'validate': instance.validate,
     };
 
 ProcessDefinition _$ProcessDefinitionFromJson(Map<String, dynamic> json) =>
     ProcessDefinition(
       id: json['id'] as String,
-      name: json['name'] as String?,
+      name: json['name'] as String? ?? json['id'] as String,
       description: json['description'] as String?,
       enabled: json['enabled'] as bool? ?? true,
       trigger: json['trigger'] == null
           ? null
-          : TriggerDefinition.fromJson(json['trigger'] as Map<String, dynamic>),
+          : TriggerDefinition.fromJson(
+              json['trigger'] as Map<String, dynamic>),
       loop: json['loop'] as bool? ?? false,
       priority:
           $enumDecodeNullable(_$ProcessPriorityEnumMap, json['priority']) ??
@@ -183,16 +230,9 @@ ProcessDefinition _$ProcessDefinitionFromJson(Map<String, dynamic> json) =>
       error: (json['error'] as List<dynamic>?)
           ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
-      finally$: (json[r'finally$'] as List<dynamic>?)
+      finally$: (json['finally'] as List<dynamic>?)
           ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
-      mcp: json['mcp'] == null
-          ? null
-          : McpProcessBinding.fromJson(json['mcp'] as Map<String, dynamic>),
-      security: json['security'] == null
-          ? null
-          : ProcessSecurityConfig.fromJson(
-              json['security'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$ProcessDefinitionToJson(ProcessDefinition instance) =>
@@ -201,14 +241,12 @@ Map<String, dynamic> _$ProcessDefinitionToJson(ProcessDefinition instance) =>
       'name': instance.name,
       'description': instance.description,
       'enabled': instance.enabled,
-      'trigger': instance.trigger,
+      'trigger': instance.trigger?.toJson(),
       'loop': instance.loop,
       'priority': _$ProcessPriorityEnumMap[instance.priority]!,
-      'steps': instance.steps,
-      'error': instance.error,
-      r'finally$': instance.finally$,
-      'mcp': instance.mcp,
-      'security': instance.security,
+      'steps': instance.steps.map((e) => e.toJson()).toList(),
+      'error': instance.error?.map((e) => e.toJson()).toList(),
+      'finally': instance.finally$?.map((e) => e.toJson()).toList(),
     };
 
 const _$ProcessPriorityEnumMap = {
@@ -225,6 +263,11 @@ TriggerDefinition _$TriggerDefinitionFromJson(Map<String, dynamic> json) =>
       condition: json['condition'] as String?,
       interval: (json['interval'] as num?)?.toInt(),
       cron: json['cron'] as String?,
+      delay: (json['delay'] as num?)?.toInt(),
+      variable: json['variable'] as String?,
+      channel: json['channel'] as String?,
+      resource: json['resource'] as String?,
+      debounceMs: (json['debounceMs'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$TriggerDefinitionToJson(TriggerDefinition instance) =>
@@ -234,6 +277,11 @@ Map<String, dynamic> _$TriggerDefinitionToJson(TriggerDefinition instance) =>
       'condition': instance.condition,
       'interval': instance.interval,
       'cron': instance.cron,
+      'delay': instance.delay,
+      'variable': instance.variable,
+      'channel': instance.channel,
+      'resource': instance.resource,
+      'debounceMs': instance.debounceMs,
     };
 
 const _$TriggerTypeEnumMap = {
@@ -242,6 +290,9 @@ const _$TriggerTypeEnumMap = {
   TriggerType.event: 'event',
   TriggerType.condition: 'condition',
   TriggerType.schedule: 'schedule',
+  TriggerType.channelReceive: 'channelReceive',
+  TriggerType.stateChange: 'stateChange',
+  TriggerType.resourceEvent: 'resourceEvent',
 };
 
 ActionDefinition _$ActionDefinitionFromJson(Map<String, dynamic> json) =>
@@ -254,17 +305,22 @@ ActionDefinition _$ActionDefinitionFromJson(Map<String, dynamic> json) =>
       retry: json['retry'] == null
           ? null
           : RetryConfig.fromJson(json['retry'] as Map<String, dynamic>),
-      errorHandling: json['errorHandling'] == null
-          ? null
-          : ErrorHandlingConfig.fromJson(
-              json['errorHandling'] as Map<String, dynamic>),
       then: (json['then'] as List<dynamic>?)
           ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
-      else$: (json[r'else$'] as List<dynamic>?)
+      else$: (json['else'] as List<dynamic>?)
           ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
       do$: (json['do'] as List<dynamic>?)
+          ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      try$: (json['try'] as List<dynamic>?)
+          ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      catch$: (json['catch'] as List<dynamic>?)
+          ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      finally$: (json['finally'] as List<dynamic>?)
           ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
       cases: (json['cases'] as Map<String, dynamic>?)?.map(
@@ -277,7 +333,7 @@ ActionDefinition _$ActionDefinitionFromJson(Map<String, dynamic> json) =>
       ),
       value: json['value'],
       branches: (json['branches'] as List<dynamic>?)
-          ?.map((e) => ParallelBranch.fromJson(e as Map<String, dynamic>))
+          ?.map((e) => BranchDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
       join: json['join'] as String?,
     );
@@ -289,29 +345,32 @@ Map<String, dynamic> _$ActionDefinitionToJson(ActionDefinition instance) =>
       'bindTo': instance.bindTo,
       'condition': instance.condition,
       'timeout': instance.timeout,
-      'retry': instance.retry,
-      'errorHandling': instance.errorHandling,
-      'then': instance.then,
-      r'else$': instance.else$,
-      'do': instance.do$,
-      'cases': instance.cases,
+      'retry': instance.retry?.toJson(),
+      'then': instance.then?.map((e) => e.toJson()).toList(),
+      'else': instance.else$?.map((e) => e.toJson()).toList(),
+      'do': instance.do$?.map((e) => e.toJson()).toList(),
+      'try': instance.try$?.map((e) => e.toJson()).toList(),
+      'catch': instance.catch$?.map((e) => e.toJson()).toList(),
+      'finally': instance.finally$?.map((e) => e.toJson()).toList(),
+      'cases': instance.cases
+          ?.map((k, e) => MapEntry(k, e.map((e) => e.toJson()).toList())),
       'value': instance.value,
-      'branches': instance.branches,
+      'branches': instance.branches?.map((e) => e.toJson()).toList(),
       'join': instance.join,
     };
 
-ParallelBranch _$ParallelBranchFromJson(Map<String, dynamic> json) =>
-    ParallelBranch(
+BranchDefinition _$BranchDefinitionFromJson(Map<String, dynamic> json) =>
+    BranchDefinition(
       id: json['id'] as String,
       steps: (json['steps'] as List<dynamic>)
           .map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
 
-Map<String, dynamic> _$ParallelBranchToJson(ParallelBranch instance) =>
+Map<String, dynamic> _$BranchDefinitionToJson(BranchDefinition instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'steps': instance.steps,
+      'steps': instance.steps.map((e) => e.toJson()).toList(),
     };
 
 RetryConfig _$RetryConfigFromJson(Map<String, dynamic> json) => RetryConfig(
@@ -342,7 +401,7 @@ ChannelDefinition _$ChannelDefinitionFromJson(Map<String, dynamic> json) =>
       type: $enumDecode(_$ChannelTypeEnumMap, json['type']),
       capacity: (json['capacity'] as num?)?.toInt(),
       overflow: json['overflow'] as String?,
-      persistent: json['persistent'] as bool? ?? false,
+      persistent: json['persistent'] as bool?,
       size: (json['size'] as num?)?.toInt(),
       mutex: json['mutex'] as bool?,
     );
@@ -360,7 +419,7 @@ Map<String, dynamic> _$ChannelDefinitionToJson(ChannelDefinition instance) =>
 const _$ChannelTypeEnumMap = {
   ChannelType.queue: 'queue',
   ChannelType.pubsub: 'pubsub',
-  ChannelType.sharedMemory: 'shared_memory',
+  ChannelType.sharedMemory: 'sharedMemory',
   ChannelType.pipe: 'pipe',
 };
 
@@ -375,7 +434,7 @@ McpResourceBinding _$McpResourceBindingFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$McpResourceBindingToJson(McpResourceBinding instance) =>
     <String, dynamic>{
       'expose': instance.expose,
-      'resource': instance.resource,
+      'resource': instance.resource?.toJson(),
     };
 
 McpResourceInfo _$McpResourceInfoFromJson(Map<String, dynamic> json) =>
@@ -394,20 +453,6 @@ Map<String, dynamic> _$McpResourceInfoToJson(McpResourceInfo instance) =>
       'updateIntervalMs': instance.updateIntervalMs,
     };
 
-McpProcessBinding _$McpProcessBindingFromJson(Map<String, dynamic> json) =>
-    McpProcessBinding(
-      expose: json['expose'] as bool? ?? false,
-      tool: json['tool'] == null
-          ? null
-          : McpToolInfo.fromJson(json['tool'] as Map<String, dynamic>),
-    );
-
-Map<String, dynamic> _$McpProcessBindingToJson(McpProcessBinding instance) =>
-    <String, dynamic>{
-      'expose': instance.expose,
-      'tool': instance.tool,
-    };
-
 McpToolInfo _$McpToolInfoFromJson(Map<String, dynamic> json) => McpToolInfo(
       name: json['name'] as String,
       description: json['description'] as String,
@@ -423,17 +468,97 @@ Map<String, dynamic> _$McpToolInfoToJson(McpToolInfo instance) =>
 
 SynchronizationDefinition _$SynchronizationDefinitionFromJson(
         Map<String, dynamic> json) =>
-    SynchronizationDefinition();
+    SynchronizationDefinition(
+      mutexes: (json['mutexes'] as Map<String, dynamic>?)?.map(
+        (k, e) =>
+            MapEntry(k, MutexDefinition.fromJson(e as Map<String, dynamic>)),
+      ),
+      semaphores: (json['semaphores'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(
+            k, SemaphoreDefinition.fromJson(e as Map<String, dynamic>)),
+      ),
+      barriers: (json['barriers'] as Map<String, dynamic>?)?.map(
+        (k, e) =>
+            MapEntry(k, BarrierDefinition.fromJson(e as Map<String, dynamic>)),
+      ),
+      events: (json['events'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(
+            k, EventSyncDefinition.fromJson(e as Map<String, dynamic>)),
+      ),
+    );
 
 Map<String, dynamic> _$SynchronizationDefinitionToJson(
         SynchronizationDefinition instance) =>
-    <String, dynamic>{};
+    <String, dynamic>{
+      'mutexes': instance.mutexes?.map((k, e) => MapEntry(k, e.toJson())),
+      'semaphores':
+          instance.semaphores?.map((k, e) => MapEntry(k, e.toJson())),
+      'barriers': instance.barriers?.map((k, e) => MapEntry(k, e.toJson())),
+      'events': instance.events?.map((k, e) => MapEntry(k, e.toJson())),
+    };
+
+MutexDefinition _$MutexDefinitionFromJson(Map<String, dynamic> json) =>
+    MutexDefinition(
+      timeoutMs: (json['timeoutMs'] as num?)?.toInt(),
+      priorityInheritance: json['priorityInheritance'] as bool?,
+    );
+
+Map<String, dynamic> _$MutexDefinitionToJson(MutexDefinition instance) =>
+    <String, dynamic>{
+      'timeoutMs': instance.timeoutMs,
+      'priorityInheritance': instance.priorityInheritance,
+    };
+
+SemaphoreDefinition _$SemaphoreDefinitionFromJson(
+        Map<String, dynamic> json) =>
+    SemaphoreDefinition(
+      initial: (json['initial'] as num).toInt(),
+      max: (json['max'] as num?)?.toInt(),
+    );
+
+Map<String, dynamic> _$SemaphoreDefinitionToJson(
+        SemaphoreDefinition instance) =>
+    <String, dynamic>{
+      'initial': instance.initial,
+      'max': instance.max,
+    };
+
+BarrierDefinition _$BarrierDefinitionFromJson(Map<String, dynamic> json) =>
+    BarrierDefinition(
+      count: (json['count'] as num).toInt(),
+      autoReset: json['autoReset'] as bool?,
+    );
+
+Map<String, dynamic> _$BarrierDefinitionToJson(BarrierDefinition instance) =>
+    <String, dynamic>{
+      'count': instance.count,
+      'autoReset': instance.autoReset,
+    };
+
+EventSyncDefinition _$EventSyncDefinitionFromJson(
+        Map<String, dynamic> json) =>
+    EventSyncDefinition(
+      autoReset: json['autoReset'] as bool?,
+      initialState: json['initialState'] as bool?,
+    );
+
+Map<String, dynamic> _$EventSyncDefinitionToJson(
+        EventSyncDefinition instance) =>
+    <String, dynamic>{
+      'autoReset': instance.autoReset,
+      'initialState': instance.initialState,
+    };
 
 EventDefinition _$EventDefinitionFromJson(Map<String, dynamic> json) =>
     EventDefinition(
       id: json['id'] as String,
       type: json['type'] as String,
       source: json['source'] as String,
+      condition: json['condition'] as String?,
+      debounceMs: (json['debounceMs'] as num?)?.toInt(),
+      actions: (json['actions'] as List<dynamic>?)
+          ?.map((e) => ActionDefinition.fromJson(e as Map<String, dynamic>))
+          .toList() ?? const [],
     );
 
 Map<String, dynamic> _$EventDefinitionToJson(EventDefinition instance) =>
@@ -441,19 +566,47 @@ Map<String, dynamic> _$EventDefinitionToJson(EventDefinition instance) =>
       'id': instance.id,
       'type': instance.type,
       'source': instance.source,
+      'condition': instance.condition,
+      'debounceMs': instance.debounceMs,
+      'actions': instance.actions.map((e) => e.toJson()).toList(),
     };
 
 SecurityConfig _$SecurityConfigFromJson(Map<String, dynamic> json) =>
-    SecurityConfig();
+    SecurityConfig(
+      requireAuth: json['requireAuth'] as bool?,
+      allowedRoles: (json['allowedRoles'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      auditLog: json['auditLog'] as bool?,
+      confirmationRequired: json['confirmationRequired'] as bool?,
+      rateLimit: json['rateLimit'] as Map<String, dynamic>?,
+    );
 
 Map<String, dynamic> _$SecurityConfigToJson(SecurityConfig instance) =>
-    <String, dynamic>{};
+    <String, dynamic>{
+      'requireAuth': instance.requireAuth,
+      'allowedRoles': instance.allowedRoles,
+      'auditLog': instance.auditLog,
+      'confirmationRequired': instance.confirmationRequired,
+      'rateLimit': instance.rateLimit,
+    };
 
-SafetyConfig _$SafetyConfigFromJson(Map<String, dynamic> json) =>
-    SafetyConfig();
+SafetyConfig _$SafetyConfigFromJson(Map<String, dynamic> json) => SafetyConfig(
+      maxDutyCycle: (json['maxDutyCycle'] as num?)?.toDouble(),
+      maxTemperature: (json['maxTemperature'] as num?)?.toDouble(),
+      currentLimit: (json['currentLimit'] as num?)?.toDouble(),
+      protectionAction: json['protectionAction'] as String?,
+      cooldownPeriod: (json['cooldownPeriod'] as num?)?.toInt(),
+    );
 
 Map<String, dynamic> _$SafetyConfigToJson(SafetyConfig instance) =>
-    <String, dynamic>{};
+    <String, dynamic>{
+      'maxDutyCycle': instance.maxDutyCycle,
+      'maxTemperature': instance.maxTemperature,
+      'currentLimit': instance.currentLimit,
+      'protectionAction': instance.protectionAction,
+      'cooldownPeriod': instance.cooldownPeriod,
+    };
 
 ErrorHandlingConfig _$ErrorHandlingConfigFromJson(Map<String, dynamic> json) =>
     ErrorHandlingConfig();
@@ -463,16 +616,84 @@ Map<String, dynamic> _$ErrorHandlingConfigToJson(
     <String, dynamic>{};
 
 StateSecurityConfig _$StateSecurityConfigFromJson(Map<String, dynamic> json) =>
-    StateSecurityConfig();
+    StateSecurityConfig(
+      encrypted: json['encrypted'] as bool?,
+      algorithm: json['algorithm'] as String?,
+      masked: json['masked'] as bool?,
+      readRoles: (json['readRoles'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      writeRoles: (json['writeRoles'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      auditLog: json['auditLog'] as bool?,
+      critical: json['critical'] as bool?,
+    );
 
 Map<String, dynamic> _$StateSecurityConfigToJson(
         StateSecurityConfig instance) =>
-    <String, dynamic>{};
+    <String, dynamic>{
+      'encrypted': instance.encrypted,
+      'algorithm': instance.algorithm,
+      'masked': instance.masked,
+      'readRoles': instance.readRoles,
+      'writeRoles': instance.writeRoles,
+      'auditLog': instance.auditLog,
+      'critical': instance.critical,
+    };
 
-ProcessSecurityConfig _$ProcessSecurityConfigFromJson(
-        Map<String, dynamic> json) =>
-    ProcessSecurityConfig();
+McpTool _$McpToolFromJson(Map<String, dynamic> json) => McpTool(
+      name: json['name'] as String,
+      description: json['description'] as String?,
+      inputSchema: json['inputSchema'] as Map<String, dynamic>?,
+    );
 
-Map<String, dynamic> _$ProcessSecurityConfigToJson(
-        ProcessSecurityConfig instance) =>
-    <String, dynamic>{};
+Map<String, dynamic> _$McpToolToJson(McpTool instance) => <String, dynamic>{
+      'name': instance.name,
+      'description': instance.description,
+      'inputSchema': instance.inputSchema,
+    };
+
+McpResource _$McpResourceFromJson(Map<String, dynamic> json) => McpResource(
+      name: json['name'] as String,
+      uri: json['uri'] as String,
+      description: json['description'] as String?,
+      mimeType: json['mimeType'] as String?,
+      content: json['content'],
+    );
+
+Map<String, dynamic> _$McpResourceToJson(McpResource instance) =>
+    <String, dynamic>{
+      'name': instance.name,
+      'uri': instance.uri,
+      'description': instance.description,
+      'mimeType': instance.mimeType,
+      'content': instance.content,
+    };
+
+McpConfig _$McpConfigFromJson(Map<String, dynamic> json) => McpConfig(
+      mode: $enumDecodeNullable(_$McpModeEnumMap, json['mode']) ??
+          McpMode.standard,
+      extendedData: json['extendedData'] as bool?,
+      fallback: json['fallback'] as Map<String, dynamic>?,
+      tools: (json['tools'] as List<dynamic>?)
+          ?.map((e) => McpTool.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      resources: (json['resources'] as List<dynamic>?)
+          ?.map((e) => McpResource.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$McpConfigToJson(McpConfig instance) =>
+    <String, dynamic>{
+      'mode': _$McpModeEnumMap[instance.mode]!,
+      'extendedData': instance.extendedData,
+      'fallback': instance.fallback,
+      'tools': instance.tools?.map((e) => e.toJson()).toList(),
+      'resources': instance.resources?.map((e) => e.toJson()).toList(),
+    };
+
+const _$McpModeEnumMap = {
+  McpMode.standard: 'standard',
+  McpMode.extended: 'extended',
+};

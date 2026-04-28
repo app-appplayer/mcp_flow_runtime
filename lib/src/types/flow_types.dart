@@ -6,30 +6,30 @@ import 'package:json_annotation/json_annotation.dart';
 part 'flow_types.g.dart';
 
 /// Flow definition root
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class FlowDefinition extends Equatable {
   @JsonKey(name: r'$schema')
   final String? schema;
   final String version;
-  final FlowMetadata? metadata;
-  final Map<String, dynamic>? configuration;
+  final FlowMetadata metadata; // TD-004: required
+  final FlowConfiguration? configuration; // TD-005: typed FlowConfiguration
   final Map<String, ResourceDefinition> resources;
   final Map<String, StateDefinition> state;
-  final Map<String, ChannelDefinition>? channels;
+  final Map<String, ChannelDefinition> channels; // TD-006: required with default
   final SynchronizationDefinition? synchronization;
   final List<ProcessDefinition> processes;
   final List<EventDefinition>? events;
-  @JsonKey(name: 'ui_definitions')
+  @JsonKey(name: 'uiDefinitions')
   final Map<String, dynamic>? uiDefinitions;
 
   const FlowDefinition({
     this.schema,
     required this.version,
-    this.metadata,
+    required this.metadata,
     this.configuration,
     this.resources = const {},
     this.state = const {},
-    this.channels,
+    this.channels = const {},
     this.synchronization,
     required this.processes,
     this.events,
@@ -57,15 +57,60 @@ class FlowDefinition extends Equatable {
       ];
 }
 
-/// Flow metadata
+/// Flow configuration per DDD (TD-005)
+@JsonSerializable(explicitToJson: true)
+class FlowConfiguration extends Equatable {
+  final Map<String, dynamic>? hal;
+  final RuntimeLimitsConfig? runtime;
+  final McpConfig? mcp;
+  final Map<String, dynamic>? system;
+
+  const FlowConfiguration({
+    this.hal,
+    this.runtime,
+    this.mcp,
+    this.system,
+  });
+
+  factory FlowConfiguration.fromJson(Map<String, dynamic> json) =>
+      _$FlowConfigurationFromJson(json);
+
+  Map<String, dynamic> toJson() => _$FlowConfigurationToJson(this);
+
+  @override
+  List<Object?> get props => [hal, runtime, mcp, system];
+}
+
+/// Runtime limits configuration per DDD
 @JsonSerializable()
+class RuntimeLimitsConfig extends Equatable {
+  final int? tickRateMs;
+  final int? maxProcesses;
+  final int? maxMemoryKB;
+
+  const RuntimeLimitsConfig({
+    this.tickRateMs,
+    this.maxProcesses,
+    this.maxMemoryKB,
+  });
+
+  factory RuntimeLimitsConfig.fromJson(Map<String, dynamic> json) =>
+      _$RuntimeLimitsConfigFromJson(json);
+
+  Map<String, dynamic> toJson() => _$RuntimeLimitsConfigToJson(this);
+
+  @override
+  List<Object?> get props => [tickRateMs, maxProcesses, maxMemoryKB];
+}
+
+/// Flow metadata (TD-003: tags removed)
+@JsonSerializable(explicitToJson: true)
 class FlowMetadata extends Equatable {
   final String name;
   final String? description;
   final String? author;
   final DateTime? created;
   final DateTime? modified;
-  final List<String>? tags;
 
   const FlowMetadata({
     required this.name,
@@ -73,7 +118,6 @@ class FlowMetadata extends Equatable {
     this.author,
     this.created,
     this.modified,
-    this.tags,
   });
 
   factory FlowMetadata.fromJson(Map<String, dynamic> json) =>
@@ -83,11 +127,11 @@ class FlowMetadata extends Equatable {
 
   @override
   List<Object?> get props =>
-      [name, description, author, created, modified, tags];
+      [name, description, author, created, modified];
 }
 
 /// Resource definition
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class ResourceDefinition extends Equatable {
   final String type;
   final Map<String, dynamic> config;
@@ -129,10 +173,12 @@ enum StateType {
   object,
   @JsonValue('array')
   array,
+  @JsonValue('any')
+  any,
 }
 
 /// State definition
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class StateDefinition extends Equatable {
   final StateType type;
   final dynamic initial;
@@ -166,7 +212,11 @@ class StateConstraints extends Equatable {
   final int? minLength;
   final int? maxLength;
   final String? pattern;
+  @JsonKey(name: 'enum')
   final List<dynamic>? enum$;
+  final int? minItems;
+  final int? maxItems;
+  final String? validate; // Custom validation expression
 
   const StateConstraints({
     this.min,
@@ -175,6 +225,9 @@ class StateConstraints extends Equatable {
     this.maxLength,
     this.pattern,
     this.enum$,
+    this.minItems,
+    this.maxItems,
+    this.validate,
   });
 
   factory StateConstraints.fromJson(Map<String, dynamic> json) =>
@@ -184,7 +237,7 @@ class StateConstraints extends Equatable {
 
   @override
   List<Object?> get props =>
-      [min, max, minLength, maxLength, pattern, enum$];
+      [min, max, minLength, maxLength, pattern, enum$, minItems, maxItems, validate];
 }
 
 /// Process priorities
@@ -199,25 +252,24 @@ enum ProcessPriority {
   realtime,
 }
 
-/// Process definition
-@JsonSerializable()
+/// Process definition (TD-009, TD-010, TD-012: aligned with Spec)
+@JsonSerializable(explicitToJson: true)
 class ProcessDefinition extends Equatable {
   final String id;
-  final String? name;
+  final String name; // TD-009: required
   final String? description;
   final bool enabled;
-  final TriggerDefinition? trigger;
+  final TriggerDefinition? trigger; // TD-010: singular only
   final bool loop;
   final ProcessPriority priority;
   final List<ActionDefinition> steps;
   final List<ActionDefinition>? error;
+  @JsonKey(name: 'finally')
   final List<ActionDefinition>? finally$;
-  final McpProcessBinding? mcp;
-  final ProcessSecurityConfig? security;
 
   const ProcessDefinition({
     required this.id,
-    this.name,
+    required this.name,
     this.description,
     this.enabled = true,
     this.trigger,
@@ -226,8 +278,6 @@ class ProcessDefinition extends Equatable {
     required this.steps,
     this.error,
     this.finally$,
-    this.mcp,
-    this.security,
   });
 
   factory ProcessDefinition.fromJson(Map<String, dynamic> json) =>
@@ -247,8 +297,6 @@ class ProcessDefinition extends Equatable {
         steps,
         error,
         finally$,
-        mcp,
-        security,
       ];
 }
 
@@ -264,16 +312,27 @@ enum TriggerType {
   condition,
   @JsonValue('schedule')
   schedule,
+  @JsonValue('channelReceive')
+  channelReceive,
+  @JsonValue('stateChange')
+  stateChange,
+  @JsonValue('resourceEvent')
+  resourceEvent,
 }
 
-/// Trigger definition
-@JsonSerializable()
+/// Trigger definition (TD-014: filter removed)
+@JsonSerializable(explicitToJson: true)
 class TriggerDefinition extends Equatable {
   final TriggerType type;
   final String? event;
   final String? condition;
   final int? interval;
   final String? cron;
+  final int? delay;       // Initial delay for schedule triggers
+  final String? variable;  // For stateChange triggers
+  final String? channel;   // For channelReceive triggers
+  final String? resource;  // For resourceEvent triggers
+  final int? debounceMs;  // Debounce delay in milliseconds
 
   const TriggerDefinition({
     required this.type,
@@ -281,19 +340,30 @@ class TriggerDefinition extends Equatable {
     this.condition,
     this.interval,
     this.cron,
+    this.delay,
+    this.variable,
+    this.channel,
+    this.resource,
+    this.debounceMs,
   });
 
-  factory TriggerDefinition.fromJson(Map<String, dynamic> json) =>
-      _$TriggerDefinitionFromJson(json);
+  factory TriggerDefinition.fromJson(Map<String, dynamic> json) {
+    // Handle backward compatibility for 'key' field used in stateChange triggers
+    if (json['type'] == 'stateChange' && json['key'] != null && json['variable'] == null) {
+      json = Map<String, dynamic>.from(json);
+      json['variable'] = json['key'];
+    }
+    return _$TriggerDefinitionFromJson(json);
+  }
 
   Map<String, dynamic> toJson() => _$TriggerDefinitionToJson(this);
 
   @override
-  List<Object?> get props => [type, event, condition, interval, cron];
+  List<Object?> get props => [type, event, condition, interval, cron, delay, variable, channel, resource, debounceMs];
 }
 
-/// Action definition
-@JsonSerializable()
+/// Action definition (TD-015: errorHandling removed)
+@JsonSerializable(explicitToJson: true)
 class ActionDefinition extends Equatable {
   final String action;
   final Map<String, dynamic>? params;
@@ -301,16 +371,22 @@ class ActionDefinition extends Equatable {
   final String? condition;
   final int? timeout;
   final RetryConfig? retry;
-  final ErrorHandlingConfig? errorHandling;
 
   // Control flow specific fields
   final List<ActionDefinition>? then; // for if
+  @JsonKey(name: 'else')
   final List<ActionDefinition>? else$; // for if
   @JsonKey(name: 'do')
   final List<ActionDefinition>? do$; // for while/for
+  @JsonKey(name: 'try')
+  final List<ActionDefinition>? try$; // for try
+  @JsonKey(name: 'catch')
+  final List<ActionDefinition>? catch$; // for try
+  @JsonKey(name: 'finally')
+  final List<ActionDefinition>? finally$; // for try
   final Map<String, List<ActionDefinition>>? cases; // for switch
   final dynamic value; // for switch
-  final List<ParallelBranch>? branches; // for parallel
+  final List<BranchDefinition>? branches; // TD-016: renamed from ParallelBranch
   final String? join; // for parallel
 
   const ActionDefinition({
@@ -320,18 +396,35 @@ class ActionDefinition extends Equatable {
     this.condition,
     this.timeout,
     this.retry,
-    this.errorHandling,
     this.then,
     this.else$,
     this.do$,
+    this.try$,
+    this.catch$,
+    this.finally$,
     this.cases,
     this.value,
     this.branches,
     this.join,
   });
 
-  factory ActionDefinition.fromJson(Map<String, dynamic> json) =>
-      _$ActionDefinitionFromJson(json);
+  factory ActionDefinition.fromJson(Map<String, dynamic> json) {
+    // Handle branches in simple array format
+    if (json['branches'] != null && json['branches'] is List) {
+      final branches = json['branches'] as List;
+      if (branches.isNotEmpty && branches.first is List) {
+        // Convert simple array format to BranchDefinition format
+        json = Map<String, dynamic>.from(json);
+        json['branches'] = branches.asMap().entries.map((entry) {
+          return {
+            'id': 'branch_${entry.key}',
+            'steps': entry.value,
+          };
+        }).toList();
+      }
+    }
+    return _$ActionDefinitionFromJson(json);
+  }
 
   Map<String, dynamic> toJson() => _$ActionDefinitionToJson(this);
 
@@ -343,10 +436,12 @@ class ActionDefinition extends Equatable {
         condition,
         timeout,
         retry,
-        errorHandling,
         then,
         else$,
         do$,
+        try$,
+        catch$,
+        finally$,
         cases,
         value,
         branches,
@@ -354,21 +449,21 @@ class ActionDefinition extends Equatable {
       ];
 }
 
-/// Parallel branch
+/// Branch definition for parallel execution (TD-016: renamed from ParallelBranch)
 @JsonSerializable()
-class ParallelBranch extends Equatable {
+class BranchDefinition extends Equatable {
   final String id;
   final List<ActionDefinition> steps;
 
-  const ParallelBranch({
+  const BranchDefinition({
     required this.id,
     required this.steps,
   });
 
-  factory ParallelBranch.fromJson(Map<String, dynamic> json) =>
-      _$ParallelBranchFromJson(json);
+  factory BranchDefinition.fromJson(Map<String, dynamic> json) =>
+      _$BranchDefinitionFromJson(json);
 
-  Map<String, dynamic> toJson() => _$ParallelBranchToJson(this);
+  Map<String, dynamic> toJson() => _$BranchDefinitionToJson(this);
 
   @override
   List<Object?> get props => [id, steps];
@@ -409,19 +504,19 @@ enum ChannelType {
   queue,
   @JsonValue('pubsub')
   pubsub,
-  @JsonValue('shared_memory')
+  @JsonValue('sharedMemory')
   sharedMemory,
   @JsonValue('pipe')
   pipe,
 }
 
-/// Channel definition
+/// Channel definition (TD-019: persistent is nullable)
 @JsonSerializable()
 class ChannelDefinition extends Equatable {
   final ChannelType type;
   final int? capacity;
   final String? overflow;
-  final bool persistent;
+  final bool? persistent; // TD-019: nullable per Spec
   final int? size;
   final bool? mutex;
 
@@ -429,7 +524,7 @@ class ChannelDefinition extends Equatable {
     required this.type,
     this.capacity,
     this.overflow,
-    this.persistent = false,
+    this.persistent,
     this.size,
     this.mutex,
   });
@@ -488,26 +583,6 @@ class McpResourceInfo extends Equatable {
   List<Object?> get props => [uri, name, mimeType, updateIntervalMs];
 }
 
-/// MCP process binding
-@JsonSerializable()
-class McpProcessBinding extends Equatable {
-  final bool expose;
-  final McpToolInfo? tool;
-
-  const McpProcessBinding({
-    this.expose = false,
-    this.tool,
-  });
-
-  factory McpProcessBinding.fromJson(Map<String, dynamic> json) =>
-      _$McpProcessBindingFromJson(json);
-
-  Map<String, dynamic> toJson() => _$McpProcessBindingToJson(this);
-
-  @override
-  List<Object?> get props => [expose, tool];
-}
-
 /// MCP tool info
 @JsonSerializable()
 class McpToolInfo extends Equatable {
@@ -530,10 +605,20 @@ class McpToolInfo extends Equatable {
   List<Object?> get props => [name, description, inputSchema];
 }
 
-// Placeholder classes - to be implemented
-@JsonSerializable()
+/// Synchronization definition (TD-020: implemented with full fields)
+@JsonSerializable(explicitToJson: true)
 class SynchronizationDefinition extends Equatable {
-  const SynchronizationDefinition();
+  final Map<String, MutexDefinition>? mutexes;
+  final Map<String, SemaphoreDefinition>? semaphores;
+  final Map<String, BarrierDefinition>? barriers;
+  final Map<String, EventSyncDefinition>? events;
+
+  const SynchronizationDefinition({
+    this.mutexes,
+    this.semaphores,
+    this.barriers,
+    this.events,
+  });
 
   factory SynchronizationDefinition.fromJson(Map<String, dynamic> json) =>
       _$SynchronizationDefinitionFromJson(json);
@@ -541,19 +626,106 @@ class SynchronizationDefinition extends Equatable {
   Map<String, dynamic> toJson() => _$SynchronizationDefinitionToJson(this);
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [mutexes, semaphores, barriers, events];
 }
 
+/// Mutex definition for synchronization
 @JsonSerializable()
+class MutexDefinition extends Equatable {
+  final int? timeoutMs;
+  final bool? priorityInheritance;
+
+  const MutexDefinition({
+    this.timeoutMs,
+    this.priorityInheritance,
+  });
+
+  factory MutexDefinition.fromJson(Map<String, dynamic> json) =>
+      _$MutexDefinitionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$MutexDefinitionToJson(this);
+
+  @override
+  List<Object?> get props => [timeoutMs, priorityInheritance];
+}
+
+/// Semaphore definition for synchronization
+@JsonSerializable()
+class SemaphoreDefinition extends Equatable {
+  final int initial;
+  final int? max;
+
+  const SemaphoreDefinition({
+    required this.initial,
+    this.max,
+  });
+
+  factory SemaphoreDefinition.fromJson(Map<String, dynamic> json) =>
+      _$SemaphoreDefinitionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SemaphoreDefinitionToJson(this);
+
+  @override
+  List<Object?> get props => [initial, max];
+}
+
+/// Barrier definition for synchronization
+@JsonSerializable()
+class BarrierDefinition extends Equatable {
+  final int count;
+  final bool? autoReset;
+
+  const BarrierDefinition({
+    required this.count,
+    this.autoReset,
+  });
+
+  factory BarrierDefinition.fromJson(Map<String, dynamic> json) =>
+      _$BarrierDefinitionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$BarrierDefinitionToJson(this);
+
+  @override
+  List<Object?> get props => [count, autoReset];
+}
+
+/// Event synchronization definition
+@JsonSerializable()
+class EventSyncDefinition extends Equatable {
+  final bool? autoReset;
+  final bool? initialState;
+
+  const EventSyncDefinition({
+    this.autoReset,
+    this.initialState,
+  });
+
+  factory EventSyncDefinition.fromJson(Map<String, dynamic> json) =>
+      _$EventSyncDefinitionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$EventSyncDefinitionToJson(this);
+
+  @override
+  List<Object?> get props => [autoReset, initialState];
+}
+
+/// Event definition (TD-021: completed with missing fields)
+@JsonSerializable(explicitToJson: true)
 class EventDefinition extends Equatable {
   final String id;
   final String type;
   final String source;
+  final String? condition;
+  final int? debounceMs;
+  final List<ActionDefinition> actions;
 
   const EventDefinition({
     required this.id,
     required this.type,
     required this.source,
+    this.condition,
+    this.debounceMs,
+    this.actions = const [],
   });
 
   factory EventDefinition.fromJson(Map<String, dynamic> json) =>
@@ -562,12 +734,24 @@ class EventDefinition extends Equatable {
   Map<String, dynamic> toJson() => _$EventDefinitionToJson(this);
 
   @override
-  List<Object?> get props => [id, type, source];
+  List<Object?> get props => [id, type, source, condition, debounceMs, actions];
 }
 
 @JsonSerializable()
 class SecurityConfig extends Equatable {
-  const SecurityConfig();
+  final bool? requireAuth;
+  final List<String>? allowedRoles;
+  final bool? auditLog;
+  final bool? confirmationRequired;
+  final Map<String, dynamic>? rateLimit;
+
+  const SecurityConfig({
+    this.requireAuth,
+    this.allowedRoles,
+    this.auditLog,
+    this.confirmationRequired,
+    this.rateLimit,
+  });
 
   factory SecurityConfig.fromJson(Map<String, dynamic> json) =>
       _$SecurityConfigFromJson(json);
@@ -575,12 +759,30 @@ class SecurityConfig extends Equatable {
   Map<String, dynamic> toJson() => _$SecurityConfigToJson(this);
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [
+    requireAuth,
+    allowedRoles,
+    auditLog,
+    confirmationRequired,
+    rateLimit,
+  ];
 }
 
 @JsonSerializable()
 class SafetyConfig extends Equatable {
-  const SafetyConfig();
+  final double? maxDutyCycle;
+  final double? maxTemperature;
+  final double? currentLimit;
+  final String? protectionAction;
+  final int? cooldownPeriod;
+
+  const SafetyConfig({
+    this.maxDutyCycle,
+    this.maxTemperature,
+    this.currentLimit,
+    this.protectionAction,
+    this.cooldownPeriod,
+  });
 
   factory SafetyConfig.fromJson(Map<String, dynamic> json) =>
       _$SafetyConfigFromJson(json);
@@ -588,7 +790,13 @@ class SafetyConfig extends Equatable {
   Map<String, dynamic> toJson() => _$SafetyConfigToJson(this);
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [
+    maxDutyCycle,
+    maxTemperature,
+    currentLimit,
+    protectionAction,
+    cooldownPeriod,
+  ];
 }
 
 @JsonSerializable()
@@ -606,7 +814,23 @@ class ErrorHandlingConfig extends Equatable {
 
 @JsonSerializable()
 class StateSecurityConfig extends Equatable {
-  const StateSecurityConfig();
+  final bool? encrypted;
+  final String? algorithm;
+  final bool? masked;
+  final List<String>? readRoles;
+  final List<String>? writeRoles;
+  final bool? auditLog;
+  final bool? critical;
+
+  const StateSecurityConfig({
+    this.encrypted,
+    this.algorithm,
+    this.masked,
+    this.readRoles,
+    this.writeRoles,
+    this.auditLog,
+    this.critical,
+  });
 
   factory StateSecurityConfig.fromJson(Map<String, dynamic> json) =>
       _$StateSecurityConfigFromJson(json);
@@ -614,18 +838,98 @@ class StateSecurityConfig extends Equatable {
   Map<String, dynamic> toJson() => _$StateSecurityConfigToJson(this);
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [
+    encrypted,
+    algorithm,
+    masked,
+    readRoles,
+    writeRoles,
+    auditLog,
+    critical,
+  ];
 }
 
+/// MCP Tool Definition
 @JsonSerializable()
-class ProcessSecurityConfig extends Equatable {
-  const ProcessSecurityConfig();
+class McpTool extends Equatable {
+  final String name;
+  final String? description;
+  final Map<String, dynamic>? inputSchema;
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  final Future<dynamic> Function(Map<String, dynamic>)? handler;
 
-  factory ProcessSecurityConfig.fromJson(Map<String, dynamic> json) =>
-      _$ProcessSecurityConfigFromJson(json);
+  const McpTool({
+    required this.name,
+    this.description,
+    this.inputSchema,
+    this.handler,
+  });
 
-  Map<String, dynamic> toJson() => _$ProcessSecurityConfigToJson(this);
+  factory McpTool.fromJson(Map<String, dynamic> json) =>
+      _$McpToolFromJson(json);
+
+  Map<String, dynamic> toJson() => _$McpToolToJson(this);
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [name, description, inputSchema];
+}
+
+/// MCP Resource Definition
+@JsonSerializable()
+class McpResource extends Equatable {
+  final String name;
+  final String uri;
+  final String? description;
+  final String? mimeType;
+  final dynamic content;
+
+  const McpResource({
+    required this.name,
+    required this.uri,
+    this.description,
+    this.mimeType,
+    this.content,
+  });
+
+  factory McpResource.fromJson(Map<String, dynamic> json) =>
+      _$McpResourceFromJson(json);
+
+  Map<String, dynamic> toJson() => _$McpResourceToJson(this);
+
+  @override
+  List<Object?> get props => [name, uri, description, mimeType, content];
+}
+
+/// MCP Configuration
+@JsonSerializable()
+class McpConfig extends Equatable {
+  final McpMode mode;
+  final bool? extendedData;
+  final Map<String, dynamic>? fallback;
+  final List<McpTool>? tools;
+  final List<McpResource>? resources;
+
+  const McpConfig({
+    this.mode = McpMode.standard,
+    this.extendedData,
+    this.fallback,
+    this.tools,
+    this.resources,
+  });
+
+  factory McpConfig.fromJson(Map<String, dynamic> json) =>
+      _$McpConfigFromJson(json);
+
+  Map<String, dynamic> toJson() => _$McpConfigToJson(this);
+
+  @override
+  List<Object?> get props => [mode, extendedData, fallback, tools, resources];
+}
+
+/// MCP Mode enum
+enum McpMode {
+  @JsonValue('standard')
+  standard,
+  @JsonValue('extended')
+  extended,
 }

@@ -23,7 +23,8 @@ abstract class MockProvider extends HardwareProvider {
 
   @override
   Future<void> initialize() async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Removed wall-clock delay placeholder — Flutter widget tests run in a
+    // FakeAsync zone where this would stall `pumpWidget` indefinitely.
     _ready = true;
   }
 
@@ -48,7 +49,7 @@ class MockGpioProvider extends MockProvider implements GpioProvider {
   MockGpioProvider({super.limitedMode});
 
   @override
-  String get name => 'MockGPIO';
+  String get name => 'Mock GPIO';
 
   @override
   Set<ResourceType> get supportedTypes => {ResourceType.gpio};
@@ -287,7 +288,7 @@ class MockPwmProvider extends MockProvider implements PwmProvider {
     if (!isReady) throw const HardwareError('Provider not ready', resourceId: 'pwm', resourceType: 'pwm');
     
     _configs[config.channel] = config;
-    _dutyCycles[config.channel] = config.dutyCycle;
+    _dutyCycles[config.channel] = config.dutyPercent;
     _enabled[config.channel] = true;
   }
 
@@ -319,8 +320,8 @@ class MockPwmProvider extends MockProvider implements PwmProvider {
     
     _configs[channel] = PwmConfig(
       channel: channel,
-      frequency: frequency,
-      dutyCycle: _dutyCycles[channel] ?? 0.0,
+      frequencyHz: frequency,
+      dutyPercent: _dutyCycles[channel] ?? 0.0,
     );
   }
 
@@ -578,5 +579,104 @@ class MockModbusClient implements ModbusClient {
   Future<void> disconnect() async {
     _connected = false;
     await Future.delayed(const Duration(milliseconds: 100));
+  }
+}
+
+/// Mock DAC provider for testing
+class MockDacProvider extends MockProvider implements DacProvider {
+  final Map<int, DacConfig> _configs = {};
+  final Map<int, int> _rawValues = {};
+  final Map<int, double> _voltages = {};
+  final Map<int, bool> _enabled = {};
+
+  MockDacProvider({super.limitedMode = false});
+
+  @override
+  String get name => 'MockDAC';
+
+  @override
+  Set<ResourceType> get supportedTypes => {ResourceType.dac};
+
+  @override
+  Future<void> configureChannel(DacConfig config) async {
+    if (!isReady) throw const HardwareError('Provider not ready', resourceId: 'dac', resourceType: 'dac');
+    _configs[config.channel] = config;
+    _rawValues[config.channel] = 0;
+    _voltages[config.channel] = 0.0;
+    _enabled[config.channel] = false;
+  }
+
+  @override
+  Future<void> writeRaw(int channel, int value) async {
+    if (!isReady) throw const HardwareError('Provider not ready', resourceId: 'dac', resourceType: 'dac');
+    if (!_configs.containsKey(channel)) {
+      throw HardwareError('DAC channel $channel not configured', resourceId: channel.toString(), resourceType: 'dac');
+    }
+    _rawValues[channel] = value;
+  }
+
+  @override
+  Future<void> writeVoltage(int channel, double voltage) async {
+    if (!isReady) throw const HardwareError('Provider not ready', resourceId: 'dac', resourceType: 'dac');
+    if (!_configs.containsKey(channel)) {
+      throw HardwareError('DAC channel $channel not configured', resourceId: channel.toString(), resourceType: 'dac');
+    }
+    _voltages[channel] = voltage;
+  }
+
+  @override
+  Future<void> setOutputEnabled(int channel, bool enabled) async {
+    if (!isReady) throw const HardwareError('Provider not ready', resourceId: 'dac', resourceType: 'dac');
+    _enabled[channel] = enabled;
+  }
+
+  @override
+  List<int> get availableChannels => _configs.keys.toList();
+}
+
+/// Mock Timer provider for testing
+class MockTimerProvider extends MockProvider implements TimerProvider {
+  int _nextTimerId = 1;
+  final Map<int, Timer> _timers = {};
+
+  MockTimerProvider({super.limitedMode = false});
+
+  @override
+  String get name => 'MockTimer';
+
+  @override
+  Set<ResourceType> get supportedTypes => {ResourceType.timer};
+
+  @override
+  Future<int> start(Duration duration, void Function() callback, {bool periodic = false}) async {
+    if (!isReady) throw const HardwareError('Provider not ready', resourceId: 'timer', resourceType: 'timer');
+    final id = _nextTimerId++;
+    if (periodic) {
+      _timers[id] = Timer.periodic(duration, (_) => callback());
+    } else {
+      _timers[id] = Timer(duration, () {
+        callback();
+        _timers.remove(id);
+      });
+    }
+    return id;
+  }
+
+  @override
+  Future<void> stop(int timerId) async {
+    final timer = _timers.remove(timerId);
+    timer?.cancel();
+  }
+
+  @override
+  bool isRunning(int timerId) => _timers.containsKey(timerId) && _timers[timerId]!.isActive;
+
+  @override
+  Future<void> dispose() async {
+    for (final timer in _timers.values) {
+      timer.cancel();
+    }
+    _timers.clear();
+    await super.dispose();
   }
 }

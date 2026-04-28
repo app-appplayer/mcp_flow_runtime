@@ -7,6 +7,8 @@ import 'dart:io';
 import 'package:hive/hive.dart';
 import 'package:logging/logging.dart';
 
+import 'encrypted_state_store.dart';
+
 /// Abstract state store interface
 abstract class StateStore {
   /// Initialize the store
@@ -20,6 +22,9 @@ abstract class StateStore {
   
   /// Remove a value
   Future<void> remove(String key);
+
+  /// Load all stored key-value pairs
+  Future<Map<String, dynamic>> loadAll();
   
   /// Clear all values
   Future<void> clear();
@@ -31,7 +36,6 @@ abstract class StateStore {
 /// In-memory state store (no persistence)
 class InMemoryStateStore implements StateStore {
   final Map<String, dynamic> _data = {};
-
   @override
   Future<void> initialize() async {
     // Nothing to initialize
@@ -50,6 +54,11 @@ class InMemoryStateStore implements StateStore {
   @override
   Future<void> remove(String key) async {
     _data.remove(key);
+  }
+
+  @override
+  Future<Map<String, dynamic>> loadAll() async {
+    return Map<String, dynamic>.from(_data);
   }
 
   @override
@@ -101,6 +110,11 @@ class FileStateStore implements StateStore {
   Future<void> remove(String key) async {
     _data.remove(key);
     await _persist();
+  }
+
+  @override
+  Future<Map<String, dynamic>> loadAll() async {
+    return Map<String, dynamic>.from(_data);
   }
 
   @override
@@ -164,6 +178,17 @@ class HiveStateStore implements StateStore {
   }
 
   @override
+  Future<Map<String, dynamic>> loadAll() async {
+    final result = <String, dynamic>{};
+    if (_box != null) {
+      for (final key in _box!.keys) {
+        result[key.toString()] = _box!.get(key);
+      }
+    }
+    return result;
+  }
+
+  @override
   Future<void> clear() async {
     await _box?.clear();
   }
@@ -205,9 +230,28 @@ class StateStoreFactory {
         final boxName = config?['boxName'] as String? ?? 'flow_state';
         final directory = config?['directory'] as String?;
         return HiveStateStore(boxName: boxName, directory: directory);
-        
+
+      case 'encrypted':
+        final baseType = config?['baseType'] as String? ?? 'memory';
+        final encryptionKey = config?['encryptionKey'] as String?;
+        if (encryptionKey == null) {
+          throw ArgumentError('Encrypted state store requires encryptionKey in config');
+        }
+        final baseStore = create(type: baseType, config: config);
+        return EncryptedStateStore(baseStore: baseStore, encryptionKey: encryptionKey);
+
       default:
         throw ArgumentError('Unknown state store type: $type');
     }
+  }
+  
+  /// Create an encrypted state store
+  static StateStore createEncrypted({
+    required String baseType,
+    required String encryptionKey,
+    Map<String, dynamic>? config,
+  }) {
+    // This will be implemented by the EncryptedStateStore extension
+    throw UnimplementedError('Import encrypted_state_store.dart to use encryption');
   }
 }

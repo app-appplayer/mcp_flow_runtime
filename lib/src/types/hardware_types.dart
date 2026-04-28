@@ -51,78 +51,82 @@ class GpioConfig {
 class I2cConfig {
   final int bus;
   final int address;
-  final int? frequency;
+  final int? clockHz;
 
   const I2cConfig({
     required this.bus,
     required this.address,
-    this.frequency,
+    this.clockHz,
   });
 
   Map<String, dynamic> toJson() => {
         'bus': bus,
         'address': address,
-        if (frequency != null) 'frequency': frequency,
+        if (clockHz != null) 'clockHz': clockHz,
       };
 
   factory I2cConfig.fromJson(Map<String, dynamic> json) => I2cConfig(
         bus: json['bus'] as int,
         address: json['address'] as int,
-        frequency: json['frequency'] as int?,
+        clockHz: json['clockHz'] as int?,
       );
 }
 
 /// SPI configuration
 class SpiConfig {
+  final int bus;
   final int device;
-  final int speed;
-  final int mode;
-  final int bitsPerWord;
+  final int clockHz;
+  final int? mode;
+  final int? bitsPerWord;
 
   const SpiConfig({
+    required this.bus,
     required this.device,
-    this.speed = 1000000, // 1MHz default
-    this.mode = 0,
-    this.bitsPerWord = 8,
+    this.clockHz = 1000000, // 1MHz default
+    this.mode,
+    this.bitsPerWord,
   });
 
   Map<String, dynamic> toJson() => {
+        'bus': bus,
         'device': device,
-        'speed': speed,
-        'mode': mode,
-        'bitsPerWord': bitsPerWord,
+        'clockHz': clockHz,
+        if (mode != null) 'mode': mode,
+        if (bitsPerWord != null) 'bitsPerWord': bitsPerWord,
       };
 
   factory SpiConfig.fromJson(Map<String, dynamic> json) => SpiConfig(
+        bus: json['bus'] as int,
         device: json['device'] as int,
-        speed: json['speed'] as int? ?? 1000000,
-        mode: json['mode'] as int? ?? 0,
-        bitsPerWord: json['bitsPerWord'] as int? ?? 8,
+        clockHz: json['clockHz'] as int? ?? 1000000,
+        mode: json['mode'] as int?,
+        bitsPerWord: json['bitsPerWord'] as int?,
       );
 }
 
 /// PWM configuration
 class PwmConfig {
   final int channel;
-  final double frequency;
-  final double dutyCycle;
+  final double? frequencyHz;
+  final double dutyPercent;
 
   const PwmConfig({
     required this.channel,
-    required this.frequency,
-    this.dutyCycle = 0.0,
+    this.frequencyHz,
+    this.dutyPercent = 0.0,
   });
 
   Map<String, dynamic> toJson() => {
         'channel': channel,
-        'frequency': frequency,
-        'dutyCycle': dutyCycle,
+        if (frequencyHz != null) 'frequencyHz': frequencyHz,
+        'dutyPercent': dutyPercent,
       };
 
   factory PwmConfig.fromJson(Map<String, dynamic> json) => PwmConfig(
         channel: json['channel'] as int,
-        frequency: (json['frequency'] as num).toDouble(),
-        dutyCycle: (json['dutyCycle'] as num?)?.toDouble() ?? 0.0,
+        frequencyHz: (json['frequencyHz'] as num?)?.toDouble(),
+        dutyPercent: (json['dutyPercent'] as num?)?.toDouble() ?? 0.0,
       );
 }
 
@@ -136,7 +140,7 @@ class UartConfig {
 
   const UartConfig({
     required this.port,
-    this.baudRate = 9600,
+    required this.baudRate,
     this.dataBits = 8,
     this.stopBits = 1,
     this.parity = 'none',
@@ -152,7 +156,7 @@ class UartConfig {
 
   factory UartConfig.fromJson(Map<String, dynamic> json) => UartConfig(
         port: json['port'] as String,
-        baudRate: json['baudRate'] as int? ?? 9600,
+        baudRate: json['baudRate'] as int,
         dataBits: json['dataBits'] as int? ?? 8,
         stopBits: json['stopBits'] as int? ?? 1,
         parity: json['parity'] as String? ?? 'none',
@@ -163,27 +167,49 @@ class UartConfig {
 class AdcConfig {
   final int channel;
   final int resolution;
-  final int samples;
   final double referenceVoltage;
 
   const AdcConfig({
     required this.channel,
     this.resolution = 12,
-    this.samples = 1,
     this.referenceVoltage = 3.3,
   });
 
   Map<String, dynamic> toJson() => {
         'channel': channel,
         'resolution': resolution,
-        'samples': samples,
         'referenceVoltage': referenceVoltage,
       };
 
   factory AdcConfig.fromJson(Map<String, dynamic> json) => AdcConfig(
         channel: json['channel'] as int,
         resolution: json['resolution'] as int? ?? 12,
-        samples: json['samples'] as int? ?? 1,
+        referenceVoltage:
+            (json['referenceVoltage'] as num?)?.toDouble() ?? 3.3,
+      );
+}
+
+/// DAC configuration
+class DacConfig {
+  final int channel;
+  final int resolution;
+  final double referenceVoltage;
+
+  const DacConfig({
+    required this.channel,
+    this.resolution = 12,
+    this.referenceVoltage = 3.3,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'channel': channel,
+        'resolution': resolution,
+        'referenceVoltage': referenceVoltage,
+      };
+
+  factory DacConfig.fromJson(Map<String, dynamic> json) => DacConfig(
+        channel: json['channel'] as int,
+        resolution: json['resolution'] as int? ?? 12,
         referenceVoltage:
             (json['referenceVoltage'] as num?)?.toDouble() ?? 3.3,
       );
@@ -195,37 +221,33 @@ enum ModbusMode { rtu, tcp }
 /// Modbus configuration
 class ModbusConfig {
   final ModbusMode mode;
-  final String? port; // For RTU
-  final int? baudRate; // For RTU
-  final String? host; // For TCP
-  final int? tcpPort; // For TCP
-  final int timeout;
+  final dynamic address; // TCP host (String) or RTU port (String)
+  final int? port; // TCP port number
+  final int? unitId;
+  final int? baudRate;
 
   const ModbusConfig({
     required this.mode,
+    required this.address,
     this.port,
+    this.unitId,
     this.baudRate,
-    this.host,
-    this.tcpPort,
-    this.timeout = 1000,
   });
 
   Map<String, dynamic> toJson() => {
         'mode': mode.name,
+        'address': address,
         if (port != null) 'port': port,
+        if (unitId != null) 'unitId': unitId,
         if (baudRate != null) 'baudRate': baudRate,
-        if (host != null) 'host': host,
-        if (tcpPort != null) 'port': tcpPort,
-        'timeout': timeout,
       };
 
   factory ModbusConfig.fromJson(Map<String, dynamic> json) => ModbusConfig(
         mode: ModbusMode.values.byName(json['mode'] as String),
-        port: json['port'] as String?,
+        address: json['address'],
+        port: json['port'] as int?,
+        unitId: json['unitId'] as int?,
         baudRate: json['baudRate'] as int?,
-        host: json['host'] as String?,
-        tcpPort: json['port'] as int?,
-        timeout: json['timeout'] as int? ?? 1000,
       );
 }
 
@@ -240,6 +262,7 @@ enum ResourceType {
   dac,
   timer,
   modbus,
+  mqtt,
 }
 
 /// Base hardware resource

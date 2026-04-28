@@ -174,6 +174,24 @@ abstract class AdcProvider extends HardwareProvider {
   List<int> get availableChannels;
 }
 
+/// DAC interface
+abstract class DacProvider extends HardwareProvider {
+  /// Configure DAC channel
+  Future<void> configureChannel(DacConfig config);
+  
+  /// Write raw value
+  Future<void> writeRaw(int channel, int value);
+  
+  /// Write voltage
+  Future<void> writeVoltage(int channel, double voltage);
+  
+  /// Set output enable
+  Future<void> setOutputEnabled(int channel, bool enabled);
+  
+  /// Get available channels
+  List<int> get availableChannels;
+}
+
 /// Modbus interface
 abstract class ModbusProvider extends HardwareProvider {
   /// Connect to Modbus device
@@ -216,6 +234,27 @@ abstract class ModbusClient {
   Future<void> disconnect();
 }
 
+/// Timer interface for periodic and one-shot timers
+abstract class TimerProvider extends HardwareProvider {
+  /// Start a periodic or one-shot timer
+  ///
+  /// [duration] - timer interval/delay
+  /// [callback] - function called on timer trigger
+  /// [periodic] - if true, timer repeats; if false, fires once
+  /// Returns a timer ID for subsequent operations
+  Future<int> start(Duration duration, void Function() callback, {bool periodic = false});
+
+  /// Stop a running timer
+  ///
+  /// [timerId] - ID returned by start()
+  Future<void> stop(int timerId);
+
+  /// Check if a timer is currently running
+  ///
+  /// [timerId] - ID returned by start()
+  bool isRunning(int timerId);
+}
+
 /// Hardware abstraction layer main interface
 abstract class HardwareAbstractionLayer {
   /// Register a hardware provider
@@ -235,4 +274,46 @@ abstract class HardwareAbstractionLayer {
   
   /// Get system information
   Map<String, dynamic> get systemInfo;
+}
+
+// --- HAL Exception Classes ---
+
+/// Base class for all HAL-related exceptions
+class HalException implements Exception {
+  final String message;
+  final String? providerType;
+  final Object? cause;
+
+  const HalException(this.message, {this.providerType, this.cause});
+
+  @override
+  String toString() => 'HalException[$providerType]: $message';
+}
+
+/// Thrown when a requested provider is not registered
+class HalNotFoundException extends HalException {
+  const HalNotFoundException(String type)
+      : super('Provider not registered', providerType: type);
+}
+
+/// Thrown when provider initialization fails
+class HalInitializationException extends HalException {
+  const HalInitializationException(super.message, {super.cause});
+}
+
+/// Thrown when a hardware operation fails
+class HalOperationException extends HalException {
+  final int? errorCode;
+
+  const HalOperationException(super.message, {this.errorCode, super.cause});
+}
+
+/// Thrown when a hardware operation times out
+class HalTimeoutException extends HalException {
+  const HalTimeoutException(super.message);
+}
+
+/// Thrown when OS-level permissions are insufficient
+class HalPermissionException extends HalException {
+  const HalPermissionException(super.message);
 }

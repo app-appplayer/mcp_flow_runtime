@@ -5,6 +5,13 @@ import 'dart:io';
 import '../types/hardware_types.dart';
 import 'hal_interface.dart';
 import 'providers/mock_provider.dart';
+import 'providers/linux_gpio_provider.dart';
+import 'platforms/macos_hal.dart';
+import 'platforms/windows_hal.dart';
+import 'platforms/linux_hal.dart';
+import 'platforms/raspberry_pi_hal.dart';
+import 'platforms/beaglebone_hal.dart';
+import 'platforms/orange_pi_hal.dart';
 
 /// Platform types
 enum PlatformType {
@@ -71,13 +78,10 @@ class HalFactory {
   /// Check if running on embedded Linux
   bool _isEmbeddedLinux() {
     try {
-      // Check for Raspberry Pi
+      // Check for device tree model (common on embedded systems)
       final deviceTreeModel = File('/proc/device-tree/model');
       if (deviceTreeModel.existsSync()) {
-        final model = deviceTreeModel.readAsStringSync();
-        if (model.contains('Raspberry Pi')) {
-          return true;
-        }
+        return true;
       }
 
       // Check for GPIO sysfs interface
@@ -86,15 +90,16 @@ class HalFactory {
         return true;
       }
 
-      // Check for common embedded boards
+      // Check for common embedded boards in cpuinfo
       final cpuInfo = File('/proc/cpuinfo');
       if (cpuInfo.existsSync()) {
         final info = cpuInfo.readAsStringSync();
         if (info.contains('BCM') || // Broadcom (Raspberry Pi)
             info.contains('AM33') || // BeagleBone
             info.contains('i.MX') || // NXP i.MX
-            info.contains('Allwinner')) {
-          // Orange Pi, etc.
+            info.contains('Allwinner') || // Orange Pi, etc.
+            info.contains('Rockchip') || // Rock Pi, etc.
+            info.contains('Amlogic')) { // ODroid, etc.
           return true;
         }
       }
@@ -106,27 +111,56 @@ class HalFactory {
 
   /// Create embedded Linux HAL
   HardwareAbstractionLayer _createEmbeddedHal(Map<String, dynamic>? config) {
-    // For now, return mock HAL
-    // TODO: Implement with dart_periphery or flutter_gpiod
-    return MockHal(config: config);
+    // Quick synchronous detection based on device tree model
+    try {
+      final deviceTreeModel = File('/proc/device-tree/model');
+      if (deviceTreeModel.existsSync()) {
+        final model = deviceTreeModel.readAsStringSync();
+        
+        if (model.contains('Raspberry Pi')) {
+          return RaspberryPiHal(config: config);
+        } else if (model.contains('BeagleBone') || model.contains('TI AM335x')) {
+          return BeagleBoneHal(config: config);
+        } else if (model.contains('Orange Pi') || model.contains('OrangePi')) {
+          return OrangePiHal(config: config);
+        }
+      }
+    } catch (_) {
+      // Fall through to generic
+    }
+
+    // Generic embedded Linux HAL
+    final hal = DefaultHal(config: config, platform: PlatformType.embedded);
+    
+    // Register Linux GPIO provider
+    hal.registerProvider(LinuxGpioProvider(
+      sysfsPath: config?['gpioSysfsPath'] as String?,
+    ));
+    
+    // Register other mock providers for now
+    hal.registerProvider(MockI2cProvider());
+    hal.registerProvider(MockSpiProvider());
+    hal.registerProvider(MockPwmProvider());
+    hal.registerProvider(MockUartProvider());
+    hal.registerProvider(MockAdcProvider());
+    hal.registerProvider(MockModbusProvider());
+    
+    return hal;
   }
 
   /// Create desktop Linux HAL
   HardwareAbstractionLayer _createLinuxHal(Map<String, dynamic>? config) {
-    // Limited hardware access on desktop Linux
-    return MockHal(config: config, limitedMode: true);
+    return LinuxHal(config: config);
   }
 
   /// Create Windows HAL
   HardwareAbstractionLayer _createWindowsHal(Map<String, dynamic>? config) {
-    // Limited hardware access on Windows
-    return MockHal(config: config, limitedMode: true);
+    return WindowsHal(config: config);
   }
 
   /// Create macOS HAL
   HardwareAbstractionLayer _createMacOsHal(Map<String, dynamic>? config) {
-    // Limited hardware access on macOS
-    return MockHal(config: config, limitedMode: true);
+    return MacOSHal(config: config);
   }
 
   /// Create Android HAL
@@ -217,5 +251,7 @@ class MockHal extends DefaultHal {
     registerProvider(MockUartProvider(limitedMode: limitedMode));
     registerProvider(MockAdcProvider(limitedMode: limitedMode));
     registerProvider(MockModbusProvider(limitedMode: limitedMode));
+    registerProvider(MockDacProvider(limitedMode: limitedMode));
+    registerProvider(MockTimerProvider(limitedMode: limitedMode));
   }
 }

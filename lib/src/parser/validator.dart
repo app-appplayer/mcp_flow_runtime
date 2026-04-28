@@ -2,24 +2,88 @@
 
 import '../types/flow_types.dart';
 
+/// Validation severity level
+enum ValidationSeverity { error, warning }
+
 /// Validation error details
 class ValidationError {
-  final String field;
+  final String code;
   final String message;
+  final String? path;
+  final ValidationSeverity severity;
   final dynamic value;
 
   ValidationError({
-    required this.field,
+    required this.code,
     required this.message,
+    this.path,
+    this.severity = ValidationSeverity.error,
     this.value,
   });
 
   @override
-  String toString() => '$field: $message';
+  String toString() => '[${severity.name}] $code: $message${path != null ? ' at $path' : ''}';
 }
 
 /// Flow validator
 class FlowValidator {
+  // Valid action types
+  static const Set<String> _validActions = {
+    // ===== HARDWARE ACTIONS =====
+    'gpioRead', 'gpioWrite', 'gpioConfig', 'gpioToggle', 'gpioInterrupt',
+    'pwmSet', 'pwmWrite', 'pwmConfig',
+    'i2cRead', 'i2cWrite', 'i2cScan',
+    'spiTransfer', 'spiWrite', 'spiRead',
+    'adcRead', 'adcReadVoltage', 'dacWrite', 'dacWriteVoltage',
+    'uartRead', 'uartWrite', 'uartAvailable', 'uartFlush',
+    'modbusRead', 'modbusWrite',
+
+    // ===== STATE ACTIONS =====
+    'stateGet', 'stateSet', 'stateUpdate', 'stateDelete', 'stateClear',
+    'increment', 'decrement', 'append', 'merge', 'toggle',
+
+    // ===== CONTROL FLOW ACTIONS =====
+    'if', 'while', 'for', 'switch', 'parallel', 'try',
+    'break', 'continue', 'return',
+
+    // ===== CHANNEL ACTIONS =====
+    'channelSend', 'channelReceive', 'channelPublish', 'channelSubscribe',
+    'channelCreate', 'channelClose',
+
+    // ===== PROCESS ACTIONS =====
+    'fork', 'join', 'processStart', 'processStop',
+
+    // ===== MCP ACTIONS =====
+    'mcpNotify', 'mcpUpdateResource', 'mcpCallTool', 'mcpSubscribe',
+
+    // ===== SYNC ACTIONS =====
+    'syncLock', 'syncUnlock', 'syncWait', 'syncSignal', 'syncBarrier',
+
+    // ===== MEMORY ACTIONS =====
+    'memoryAllocate', 'memoryWrite', 'memoryRead', 'memoryAtomic',
+
+    // ===== MQTT ACTIONS =====
+    'mqttPublish', 'mqttSubscribe', 'mqttUnsubscribe',
+
+    // ===== TIMER ACTIONS =====
+    'wait', 'timerStart', 'timerStop', 'delay', 'waitUntil', 'timeStart', 'timeElapsed',
+
+    // ===== SYSTEM ACTIONS =====
+    'log', 'systemGetInfo', 'systemSetConfig', 'systemRestart', 'systemShutdown',
+    'eventEmit',
+
+    // ===== NON-SPEC EXTENSIONS =====
+    'expression', 'function',
+    'httpRequest', 'httpGet', 'httpPost', 'httpPut', 'httpDelete',
+    'fileRead', 'fileWrite', 'fileAppend', 'fileDelete', 'fileExists',
+    'serviceDiscover', 'serviceConnect', 'serviceCall', 'serviceSubscribe',
+  };
+
+  // Known resource types for unknown-type warning
+  static const Set<String> _knownResourceTypes = {
+    'gpio', 'i2c', 'spi', 'pwm', 'uart', 'adc', 'dac', 'modbus', 'mqtt',
+  };
+
   /// Validate flow definition
   List<ValidationError> validate(FlowDefinition flow) {
     final errors = <ValidationError>[];
@@ -27,12 +91,24 @@ class FlowValidator {
     // Validate version
     if (flow.version.isEmpty) {
       errors.add(ValidationError(
-        field: 'version',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: 'version',
         message: 'Version is required',
       ));
     }
 
-    // Validate processes (empty processes array is allowed for minimal flows)
+    // Validate configuration tickRateMs
+    if (flow.configuration?.runtime?.tickRateMs != null) {
+      final tickRateMs = flow.configuration!.runtime!.tickRateMs!;
+      if (tickRateMs <= 0) {
+        errors.add(ValidationError(
+          code: 'INVALID_TYPE',
+          path: 'configuration.runtime.tickRateMs',
+          message: 'tickRateMs must be greater than 0',
+          value: tickRateMs,
+        ));
+      }
+    }
 
     // Validate each process
     for (int i = 0; i < flow.processes.length; i++) {
@@ -73,7 +149,8 @@ class FlowValidator {
     // Validate ID
     if (process.id.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.id',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.id',
         message: 'Process ID is required',
       ));
     }
@@ -81,7 +158,8 @@ class FlowValidator {
     // Validate steps
     if (process.steps.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.steps',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.steps',
         message: 'Process must have at least one step',
       ));
     }
@@ -119,23 +197,34 @@ class FlowValidator {
     // Validate action type
     if (action.action.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.action',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.action',
         message: 'Action type is required',
+      ));
+    } else if (!_validActions.contains(action.action)) {
+      errors.add(ValidationError(
+        code: 'INVALID_ACTION',
+        path: '$path.action',
+        message: 'Invalid action type: ${action.action}',
+        value: action.action,
       ));
     }
 
     // Validate control flow actions
     switch (action.action) {
       case 'if':
-        if (action.params?['condition'] == null) {
+        // Check for condition at top level first (per spec), then fallback to params
+        if (action.condition == null && action.params?['condition'] == null) {
           errors.add(ValidationError(
-            field: '$path.params.condition',
-            message: 'If action requires condition parameter',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.condition',
+            message: 'If action requires condition',
           ));
         }
         if (action.then == null && action.else$ == null) {
           errors.add(ValidationError(
-            field: '$path',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path',
             message: 'If action requires then or else branch',
           ));
         }
@@ -145,7 +234,8 @@ class FlowValidator {
       case 'for':
         if (action.do$ == null || action.do$!.isEmpty) {
           errors.add(ValidationError(
-            field: '$path.do',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.do',
             message: '${action.action} action requires do block',
           ));
         }
@@ -154,13 +244,15 @@ class FlowValidator {
       case 'switch':
         if (action.value == null) {
           errors.add(ValidationError(
-            field: '$path.value',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.value',
             message: 'Switch action requires value',
           ));
         }
         if (action.cases == null || action.cases!.isEmpty) {
           errors.add(ValidationError(
-            field: '$path.cases',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.cases',
             message: 'Switch action requires cases',
           ));
         }
@@ -169,7 +261,8 @@ class FlowValidator {
       case 'parallel':
         if (action.branches == null || action.branches!.isEmpty) {
           errors.add(ValidationError(
-            field: '$path.branches',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.branches',
             message: 'Parallel action requires branches',
           ));
         }
@@ -205,14 +298,16 @@ class FlowValidator {
     if (action.retry != null) {
       if (action.retry!.count < 0) {
         errors.add(ValidationError(
-          field: '$path.retry.count',
+          code: 'INVALID_TYPE',
+          path: '$path.retry.count',
           message: 'Retry count must be non-negative',
           value: action.retry!.count,
         ));
       }
       if (action.retry!.delayMs < 0) {
         errors.add(ValidationError(
-          field: '$path.retry.delayMs',
+          code: 'INVALID_TYPE',
+          path: '$path.retry.delayMs',
           message: 'Retry delay must be non-negative',
           value: action.retry!.delayMs,
         ));
@@ -225,11 +320,13 @@ class FlowValidator {
   List<ValidationError> _validateTrigger(TriggerDefinition trigger, String path) {
     final errors = <ValidationError>[];
 
+    // Validate trigger type is known
     switch (trigger.type) {
       case TriggerType.event:
         if (trigger.event == null || trigger.event!.isEmpty) {
           errors.add(ValidationError(
-            field: '$path.event',
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path.event',
             message: 'Event trigger requires event name',
           ));
         }
@@ -238,7 +335,8 @@ class FlowValidator {
       case TriggerType.condition:
         if (trigger.condition == null || trigger.condition!.isEmpty) {
           errors.add(ValidationError(
-            field: '$path.condition',
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path.condition',
             message: 'Condition trigger requires condition expression',
           ));
         }
@@ -247,15 +345,54 @@ class FlowValidator {
       case TriggerType.schedule:
         if (trigger.interval == null && trigger.cron == null) {
           errors.add(ValidationError(
-            field: '$path',
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path',
             message: 'Schedule trigger requires interval or cron',
           ));
         }
         if (trigger.interval != null && trigger.interval! <= 0) {
           errors.add(ValidationError(
-            field: '$path.interval',
+            code: 'INVALID_TYPE',
+            path: '$path.interval',
             message: 'Schedule interval must be positive',
             value: trigger.interval,
+          ));
+        }
+        break;
+
+      case TriggerType.channelReceive:
+        if (trigger.channel == null || trigger.channel!.isEmpty) {
+          errors.add(ValidationError(
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path.channel',
+            message: 'Channel receive trigger requires channel name',
+          ));
+        }
+        break;
+
+      case TriggerType.stateChange:
+        if (trigger.variable == null && trigger.condition == null) {
+          errors.add(ValidationError(
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path',
+            message: 'State change trigger requires variable or condition',
+          ));
+        }
+        break;
+
+      case TriggerType.resourceEvent:
+        if (trigger.resource == null || trigger.resource!.isEmpty) {
+          errors.add(ValidationError(
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path.resource',
+            message: 'Resource event trigger requires resource name',
+          ));
+        }
+        if (trigger.event == null || trigger.event!.isEmpty) {
+          errors.add(ValidationError(
+            code: 'MISSING_TRIGGER_FIELD',
+            path: '$path.event',
+            message: 'Resource event trigger requires event name',
           ));
         }
         break;
@@ -273,18 +410,32 @@ class FlowValidator {
 
     if (resource.type.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.type',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.type',
         message: 'Resource type is required',
       ));
     }
 
-    // Validate hardware resources
+    // Warn on unknown resource types
+    if (resource.type.isNotEmpty && !_knownResourceTypes.contains(resource.type)) {
+      errors.add(ValidationError(
+        code: 'UNKNOWN_RESOURCE_TYPE',
+        path: '$path.type',
+        message: 'Unknown resource type: ${resource.type}',
+        value: resource.type,
+        severity: ValidationSeverity.warning,
+      ));
+    }
+
+    // Validate hardware resources (warnings — runtime enforces at use time)
     switch (resource.type) {
       case 'gpio':
-        if (resource.config['pins'] == null) {
+        if (resource.config['pins'] == null && resource.config['pin'] == null) {
           errors.add(ValidationError(
-            field: '$path.config.pins',
-            message: 'GPIO resource requires pins configuration',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.pins',
+            message: 'GPIO resource requires pin or pins configuration',
+            severity: ValidationSeverity.warning,
           ));
         }
         break;
@@ -292,17 +443,37 @@ class FlowValidator {
       case 'i2c':
         if (resource.config['bus'] == null) {
           errors.add(ValidationError(
-            field: '$path.config.bus',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.bus',
             message: 'I2C resource requires bus configuration',
+            severity: ValidationSeverity.warning,
+          ));
+        }
+        if (resource.config['address'] == null) {
+          errors.add(ValidationError(
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.address',
+            message: 'I2C resource requires address configuration',
+            severity: ValidationSeverity.warning,
           ));
         }
         break;
 
       case 'spi':
+        if (resource.config['bus'] == null) {
+          errors.add(ValidationError(
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.bus',
+            message: 'SPI resource requires bus configuration',
+            severity: ValidationSeverity.warning,
+          ));
+        }
         if (resource.config['device'] == null) {
           errors.add(ValidationError(
-            field: '$path.config.device',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.device',
             message: 'SPI resource requires device configuration',
+            severity: ValidationSeverity.warning,
           ));
         }
         break;
@@ -310,8 +481,18 @@ class FlowValidator {
       case 'uart':
         if (resource.config['port'] == null) {
           errors.add(ValidationError(
-            field: '$path.config.port',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.port',
             message: 'UART resource requires port configuration',
+            severity: ValidationSeverity.warning,
+          ));
+        }
+        if (resource.config['baudRate'] == null) {
+          errors.add(ValidationError(
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.baudRate',
+            message: 'UART resource requires baudRate configuration',
+            severity: ValidationSeverity.warning,
           ));
         }
         break;
@@ -319,8 +500,18 @@ class FlowValidator {
       case 'modbus':
         if (resource.config['mode'] == null) {
           errors.add(ValidationError(
-            field: '$path.config.mode',
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.mode',
             message: 'Modbus resource requires mode configuration',
+            severity: ValidationSeverity.warning,
+          ));
+        }
+        if (resource.config['address'] == null) {
+          errors.add(ValidationError(
+            code: 'MISSING_REQUIRED_FIELD',
+            path: '$path.config.address',
+            message: 'Modbus resource requires address configuration',
+            severity: ValidationSeverity.warning,
           ));
         }
         break;
@@ -335,12 +526,13 @@ class FlowValidator {
     // Validate constraints
     if (state.constraints != null) {
       final constraints = state.constraints!;
-      
+
       if (state.type == StateType.number) {
         if (constraints.min != null && constraints.max != null &&
             constraints.min! > constraints.max!) {
           errors.add(ValidationError(
-            field: '$path.constraints',
+            code: 'INVALID_TYPE',
+            path: '$path.constraints',
             message: 'Min value cannot be greater than max value',
             value: constraints,
           ));
@@ -351,9 +543,31 @@ class FlowValidator {
         if (constraints.minLength != null && constraints.maxLength != null &&
             constraints.minLength! > constraints.maxLength!) {
           errors.add(ValidationError(
-            field: '$path.constraints',
+            code: 'INVALID_TYPE',
+            path: '$path.constraints',
             message: 'Min length cannot be greater than max length',
             value: constraints,
+          ));
+        }
+      }
+
+      // Validate initial value within min/max range
+      if (state.initial != null && state.type == StateType.number && state.initial is num) {
+        final initialNum = (state.initial as num).toDouble();
+        if (constraints.min != null && initialNum < constraints.min!) {
+          errors.add(ValidationError(
+            code: 'INVALID_TYPE',
+            path: '$path.initial',
+            message: 'Initial value $initialNum is less than min ${constraints.min}',
+            value: state.initial,
+          ));
+        }
+        if (constraints.max != null && initialNum > constraints.max!) {
+          errors.add(ValidationError(
+            code: 'INVALID_TYPE',
+            path: '$path.initial',
+            message: 'Initial value $initialNum is greater than max ${constraints.max}',
+            value: state.initial,
           ));
         }
       }
@@ -364,7 +578,8 @@ class FlowValidator {
       final typeError = _validateValueType(state.initial, state.type);
       if (typeError != null) {
         errors.add(ValidationError(
-          field: '$path.initial',
+          code: 'INVALID_TYPE',
+          path: '$path.initial',
           message: typeError,
           value: state.initial,
         ));
@@ -379,7 +594,8 @@ class FlowValidator {
 
     if (channel.capacity != null && channel.capacity! <= 0) {
       errors.add(ValidationError(
-        field: '$path.capacity',
+        code: 'INVALID_TYPE',
+        path: '$path.capacity',
         message: 'Channel capacity must be positive',
         value: channel.capacity,
       ));
@@ -393,21 +609,24 @@ class FlowValidator {
 
     if (event.id.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.id',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.id',
         message: 'Event ID is required',
       ));
     }
 
     if (event.type.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.type',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.type',
         message: 'Event type is required',
       ));
     }
 
     if (event.source.isEmpty) {
       errors.add(ValidationError(
-        field: '$path.source',
+        code: 'MISSING_REQUIRED_FIELD',
+        path: '$path.source',
         message: 'Event source is required',
       ));
     }
@@ -417,33 +636,127 @@ class FlowValidator {
 
   List<ValidationError> _crossValidate(FlowDefinition flow) {
     final errors = <ValidationError>[];
-    
+
     // Check for duplicate process IDs
     final processIds = <String>{};
     for (final process in flow.processes) {
       if (!processIds.add(process.id)) {
         errors.add(ValidationError(
-          field: 'processes',
+          code: 'DUPLICATE_PROCESS_ID',
+          path: 'processes',
           message: 'Duplicate process ID: ${process.id}',
+          value: process.id,
         ));
       }
     }
 
-    // Check event references
-    final eventIds = flow.events?.map((e) => e.id).toSet() ?? {};
-    for (final process in flow.processes) {
-      if (process.trigger?.type == TriggerType.event &&
-          process.trigger!.event != null &&
-          !eventIds.contains(process.trigger!.event)) {
+    // Check channel references in triggers
+    final channelNames = flow.channels?.keys.toSet() ?? {};
+
+    for (int i = 0; i < flow.processes.length; i++) {
+      final process = flow.processes[i];
+      if (process.trigger?.type == TriggerType.channelReceive &&
+          process.trigger!.channel != null &&
+          !channelNames.contains(process.trigger!.channel)) {
         errors.add(ValidationError(
-          field: 'processes.${process.id}.trigger.event',
-          message: 'Referenced event not found: ${process.trigger!.event}',
+          code: 'UNDEFINED_CHANNEL_REF',
+          severity: ValidationSeverity.warning,
+          path: 'processes[$i].trigger.channel',
+          message: 'Referenced channel not found: ${process.trigger!.channel}',
+          value: process.trigger!.channel,
         ));
       }
     }
 
-    // Check state variable references in conditions
-    // TODO: Parse and validate expressions
+    // Check channel references in actions
+    for (int i = 0; i < flow.processes.length; i++) {
+      final process = flow.processes[i];
+      errors.addAll(_validateChannelReferencesInActions(
+        process.steps,
+        'processes[$i].steps',
+        channelNames,
+      ));
+
+      if (process.error != null) {
+        errors.addAll(_validateChannelReferencesInActions(
+          process.error!,
+          'processes[$i].error',
+          channelNames,
+        ));
+      }
+
+      if (process.finally$ != null) {
+        errors.addAll(_validateChannelReferencesInActions(
+          process.finally$!,
+          'processes[$i].finally',
+          channelNames,
+        ));
+      }
+    }
+
+    // TODO: Parse and validate state variable references in expressions
+
+    return errors;
+  }
+
+  List<ValidationError> _validateChannelReferencesInActions(
+    List<ActionDefinition> actions,
+    String path,
+    Set<String> channelNames,
+  ) {
+    final errors = <ValidationError>[];
+
+    for (int i = 0; i < actions.length; i++) {
+      final action = actions[i];
+
+      // Check channel-related actions for valid channel references
+      if ((action.action == 'channelSend' || action.action == 'channelReceive' ||
+           action.action == 'channelPublish' || action.action == 'channelSubscribe') &&
+          action.params?['channel'] != null) {
+        final channelName = action.params!['channel'] as String;
+        if (!channelNames.contains(channelName)) {
+          errors.add(ValidationError(
+            code: 'UNDEFINED_CHANNEL_REF',
+          severity: ValidationSeverity.warning,
+            path: '$path[$i].params.channel',
+            message: 'Referenced channel not found: $channelName',
+            value: channelName,
+          ));
+        }
+      }
+
+      // Recursively check nested actions
+      if (action.then != null) {
+        errors.addAll(_validateChannelReferencesInActions(
+          action.then!,
+          '$path[$i].then',
+          channelNames,
+        ));
+      }
+      if (action.else$ != null) {
+        errors.addAll(_validateChannelReferencesInActions(
+          action.else$!,
+          '$path[$i].else',
+          channelNames,
+        ));
+      }
+      if (action.do$ != null) {
+        errors.addAll(_validateChannelReferencesInActions(
+          action.do$!,
+          '$path[$i].do',
+          channelNames,
+        ));
+      }
+      if (action.branches != null) {
+        for (int j = 0; j < action.branches!.length; j++) {
+          errors.addAll(_validateChannelReferencesInActions(
+            action.branches![j].steps,
+            '$path[$i].branches[$j].steps',
+            channelNames,
+          ));
+        }
+      }
+    }
 
     return errors;
   }
@@ -478,6 +791,10 @@ class FlowValidator {
         if (value is! List) {
           return 'Expected array value, got ${value.runtimeType}';
         }
+        break;
+
+      case StateType.any:
+        // Any type accepts all values
         break;
     }
     return null;

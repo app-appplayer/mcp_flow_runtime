@@ -1,0 +1,11 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  errors:
+    unused_element: ignore
+    unused_field: ignore
+    unused_local_variable: ignore
+    unused_import: ignore
+    invalid_null_aware_operator: ignore
+    constant_pattern_never_matches_value_type: ignore
+    unused_element_parameter: ignore

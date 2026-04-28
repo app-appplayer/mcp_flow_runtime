@@ -57,7 +57,7 @@ void main() async {
           },
           // Write to GPIO
           {
-            'action': 'gpioWrite',
+            'action': 'gpio.write',
             'params': {
               'pin': 13,
               'value': '=led_state'

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0] - 2026-04-28 - Platform Providers, Compact Runtime, Bundle Integration
+
+### Added
+- Real-platform HAL providers — Linux GPIO / I2C / SPI, Windows GPIO, MQTT, alongside the existing mock factory.
+- Compact flow subsystem — compiler, loader, executor, and types for embedded / restart-friendly deployment.
+- Process resilience — watchdog, circuit breaker, backup manager.
+- Channels subsystem and inter-process messaging primitives.
+- Expression engine module.
+- Encrypted state store (alongside in-memory and persistent stores).
+- Bundle integration — load flows from MCP bundles.
+- Logging, monitoring, network, resources, security, and services modules.
+- MCP integration — flows exposed as MCP tools/resources.
+- Examples — multiple-triggers and trigger-debounce flows.
+
+### Changed
+- Runtime / scheduler / process executor / action executor refactored around the new compact runtime and HAL.
+- New dependency: `mcp_bundle ^0.3.0`.
+- License changed from Apache-2.0 to MIT.
+
+---
+
 ## 0.1.0
 
 - Initial release

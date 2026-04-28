@@ -81,7 +81,7 @@ void main() async {
         'steps': [
           // Read humidity
           {
-            'action': 'adcRead',
+            'action': 'adc.read',
             'params': {
               'channel': 0
             },
@@ -97,7 +97,7 @@ void main() async {
           },
           // Read temperature
           {
-            'action': 'adcRead',
+            'action': 'adc.read',
             'params': {
               'channel': 1
             },

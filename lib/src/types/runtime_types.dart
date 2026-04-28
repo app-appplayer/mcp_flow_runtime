@@ -1,11 +1,10 @@
 /// Runtime-related type definitions
 
-import 'dart:async';
-
 import 'flow_types.dart';
 
 /// Runtime states
 enum RuntimeStatus {
+  created,
   stopped,
   starting,
   running,
@@ -15,52 +14,58 @@ enum RuntimeStatus {
 
 /// Runtime configuration
 class RuntimeConfig {
-  final int maxProcesses;
-  final int maxMemoryMB;
-  final int maxCpuPercent;
   final int tickRateMs;
-  final int maxIOOperationsPerSecond;
-  final int maxNetworkConnections;
-  final ErrorHandlingPolicy errorHandling;
-  final SecurityPolicy? security;
+  final int maxProcesses;
+  final int maxMemoryKB;
+  final String? flowFilePath;
+  final String storeType;
+  final Map<String, dynamic>? storeConfig;
+  final bool enableMonitoring;
+  final bool enableWatchdog;
+  final int? watchdogIntervalMs;
+  final String logLevel;
+  final String? logFilePath;
 
   const RuntimeConfig({
-    this.maxProcesses = 50,
-    this.maxMemoryMB = 128,
-    this.maxCpuPercent = 80,
     this.tickRateMs = 10,
-    this.maxIOOperationsPerSecond = 1000,
-    this.maxNetworkConnections = 10,
-    this.errorHandling = const ErrorHandlingPolicy(),
-    this.security,
+    this.maxProcesses = 50,
+    this.maxMemoryKB = 131072,
+    this.flowFilePath,
+    this.storeType = 'memory',
+    this.storeConfig,
+    this.enableMonitoring = true,
+    this.enableWatchdog = true,
+    this.watchdogIntervalMs,
+    this.logLevel = 'info',
+    this.logFilePath,
   });
 
   factory RuntimeConfig.fromJson(Map<String, dynamic> json) => RuntimeConfig(
-        maxProcesses: json['maxProcesses'] as int? ?? 50,
-        maxMemoryMB: json['maxMemoryMB'] as int? ?? 128,
-        maxCpuPercent: json['maxCpuPercent'] as int? ?? 80,
         tickRateMs: json['tickRateMs'] as int? ?? 10,
-        maxIOOperationsPerSecond:
-            json['maxIOOperationsPerSecond'] as int? ?? 1000,
-        maxNetworkConnections: json['maxNetworkConnections'] as int? ?? 10,
-        errorHandling: json['errorHandling'] != null
-            ? ErrorHandlingPolicy.fromJson(
-                json['errorHandling'] as Map<String, dynamic>)
-            : const ErrorHandlingPolicy(),
-        security: json['security'] != null
-            ? SecurityPolicy.fromJson(json['security'] as Map<String, dynamic>)
-            : null,
+        maxProcesses: json['maxProcesses'] as int? ?? 50,
+        maxMemoryKB: json['maxMemoryKB'] as int? ?? 131072,
+        flowFilePath: json['flowFilePath'] as String?,
+        storeType: json['storeType'] as String? ?? 'memory',
+        storeConfig: json['storeConfig'] as Map<String, dynamic>?,
+        enableMonitoring: json['enableMonitoring'] as bool? ?? true,
+        enableWatchdog: json['enableWatchdog'] as bool? ?? true,
+        watchdogIntervalMs: json['watchdogIntervalMs'] as int?,
+        logLevel: json['logLevel'] as String? ?? 'info',
+        logFilePath: json['logFilePath'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
-        'maxProcesses': maxProcesses,
-        'maxMemoryMB': maxMemoryMB,
-        'maxCpuPercent': maxCpuPercent,
         'tickRateMs': tickRateMs,
-        'maxIOOperationsPerSecond': maxIOOperationsPerSecond,
-        'maxNetworkConnections': maxNetworkConnections,
-        'errorHandling': errorHandling.toJson(),
-        if (security != null) 'security': security!.toJson(),
+        'maxProcesses': maxProcesses,
+        'maxMemoryKB': maxMemoryKB,
+        if (flowFilePath != null) 'flowFilePath': flowFilePath,
+        'storeType': storeType,
+        if (storeConfig != null) 'storeConfig': storeConfig,
+        'enableMonitoring': enableMonitoring,
+        'enableWatchdog': enableWatchdog,
+        if (watchdogIntervalMs != null) 'watchdogIntervalMs': watchdogIntervalMs,
+        'logLevel': logLevel,
+        if (logFilePath != null) 'logFilePath': logFilePath,
       };
 }
 
@@ -217,47 +222,45 @@ enum ProcessState {
 /// Process runtime information
 class ProcessInstance {
   final String id;
-  final ProcessDefinition definition;
+  final String definitionId;
   ProcessState state;
+  final DateTime createdAt;
   final DateTime startedAt;
   DateTime? completedAt;
-  final Map<String, dynamic> variables;
-  final List<ActionResult> actionResults;
-  dynamic lastError;
-  int retryCount;
+  int currentStepIndex;
+  final Map<String, dynamic> localContext;
+  dynamic errorMessage;
 
   ProcessInstance({
     required this.id,
-    required this.definition,
+    required this.definitionId,
     this.state = ProcessState.created,
+    DateTime? createdAt,
     DateTime? startedAt,
     this.completedAt,
-    Map<String, dynamic>? variables,
-    List<ActionResult>? actionResults,
-    this.lastError,
-    this.retryCount = 0,
-  })  : startedAt = startedAt ?? DateTime.now(),
-        variables = variables ?? {},
-        actionResults = actionResults ?? [];
+    this.currentStepIndex = 0,
+    Map<String, dynamic>? localContext,
+    this.errorMessage,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        startedAt = startedAt ?? DateTime.now(),
+        localContext = localContext ?? {};
 
   Duration get executionTime => (completedAt ?? DateTime.now()).difference(startedAt);
 }
 
 /// Action execution result
 class ActionResult {
-  final String actionType;
   final ActionStatus status;
-  final dynamic result;
-  final dynamic error;
-  final DateTime timestamp;
+  final dynamic value;
+  final String? errorCode;
+  final String? errorMessage;
   final Duration executionTime;
 
   const ActionResult({
-    required this.actionType,
     required this.status,
-    this.result,
-    this.error,
-    required this.timestamp,
+    this.value,
+    this.errorCode,
+    this.errorMessage,
     required this.executionTime,
   });
 }
@@ -265,10 +268,9 @@ class ActionResult {
 /// Action execution status
 enum ActionStatus {
   success,
-  error,
+  failure,
   timeout,
   skipped,
-  retry,
 }
 
 /// Execution context for actions
@@ -276,8 +278,10 @@ class ExecutionContext {
   final ProcessInstance process;
   final Map<String, dynamic> globalState;
   final Map<String, dynamic> resources;
-  final Map<String, StreamController> channels;
+  final Map<String, dynamic> channels;
   final Map<String, dynamic> args;
+  final Future<void> Function(String processId, Map<String, dynamic> args)? executeProcessCallback;
+  final Future<void> Function(String processId)? stopProcessCallback;
 
   const ExecutionContext({
     required this.process,
@@ -285,6 +289,8 @@ class ExecutionContext {
     required this.resources,
     required this.channels,
     this.args = const {},
+    this.executeProcessCallback,
+    this.stopProcessCallback,
   });
 
   /// Create a child context for sub-actions
@@ -297,12 +303,14 @@ class ExecutionContext {
       resources: resources,
       channels: channels,
       args: {...args, ...?additionalVars},
+      executeProcessCallback: executeProcessCallback,
+      stopProcessCallback: stopProcessCallback,
     );
   }
 
   /// Get a variable value, checking local then global scope
   dynamic getVariable(String name) {
-    return process.variables[name] ?? globalState[name];
+    return process.localContext[name] ?? globalState[name];
   }
 
   /// Set a variable in the appropriate scope
@@ -310,23 +318,23 @@ class ExecutionContext {
     if (global || globalState.containsKey(name)) {
       globalState[name] = value;
     } else {
-      process.variables[name] = value;
+      process.localContext[name] = value;
     }
   }
 }
 
 /// Process scheduler entry
 class ScheduledProcess {
-  final ProcessInstance process;
-  final int priority;
+  final String definitionId;
+  final String triggerType;
+  final Map<String, dynamic>? triggerParams;
   final DateTime scheduledAt;
-  Timer? timer;
 
   ScheduledProcess({
-    required this.process,
-    required this.priority,
+    required this.definitionId,
+    required this.triggerType,
+    this.triggerParams,
     DateTime? scheduledAt,
-    this.timer,
   }) : scheduledAt = scheduledAt ?? DateTime.now();
 }
 
@@ -349,43 +357,62 @@ class ResourceUsage {
 
 /// Runtime statistics
 class RuntimeStatistics {
-  final RuntimeStatus status;
   final DateTime startedAt;
-  final Duration uptime;
-  final int totalProcesses;
-  final int activeProcesses;
-  final int completedProcesses;
-  final int errorProcesses;
-  final ResourceUsage resourceUsage;
-  final Map<String, int> actionCounts;
+  final int totalProcessesStarted;
+  final int totalProcessesCompleted;
+  final int totalProcessesFailed;
+  final int activeProcessCount;
+  final int totalActionsExecuted;
+  final Map<String, int> actionCountByType;
 
-  const RuntimeStatistics({
-    required this.status,
-    required this.startedAt,
-    required this.uptime,
-    required this.totalProcesses,
-    required this.activeProcesses,
-    required this.completedProcesses,
-    required this.errorProcesses,
-    required this.resourceUsage,
-    required this.actionCounts,
-  });
+  RuntimeStatistics({
+    DateTime? startedAt,
+    required this.totalProcessesStarted,
+    required this.totalProcessesCompleted,
+    required this.totalProcessesFailed,
+    required this.activeProcessCount,
+    required this.totalActionsExecuted,
+    required this.actionCountByType,
+  }) : startedAt = startedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
-        'status': status.name,
         'startedAt': startedAt.toIso8601String(),
-        'uptime': uptime.inMilliseconds,
-        'totalProcesses': totalProcesses,
-        'activeProcesses': activeProcesses,
-        'completedProcesses': completedProcesses,
-        'errorProcesses': errorProcesses,
-        'resourceUsage': {
-          'memoryBytes': resourceUsage.memoryBytes,
-          'cpuPercent': resourceUsage.cpuPercent,
-          'ioOperations': resourceUsage.ioOperations,
-          'networkConnections': resourceUsage.networkConnections,
-          'timestamp': resourceUsage.timestamp.toIso8601String(),
-        },
-        'actionCounts': actionCounts,
+        'totalProcessesStarted': totalProcessesStarted,
+        'totalProcessesCompleted': totalProcessesCompleted,
+        'totalProcessesFailed': totalProcessesFailed,
+        'activeProcessCount': activeProcessCount,
+        'totalActionsExecuted': totalActionsExecuted,
+        'actionCountByType': actionCountByType,
       };
+}
+
+/// Process information for MCP integration
+class ProcessInfo {
+  final String id;
+  final String name;
+  final String? description;
+  final bool enabled;
+  final ProcessState status;
+  final TriggerType? triggerType;
+  final ProcessPriority priority;
+  
+  const ProcessInfo({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.enabled,
+    required this.status,
+    this.triggerType,
+    required this.priority,
+  });
+  
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    if (description != null) 'description': description,
+    'enabled': enabled,
+    'status': status.toString(),
+    if (triggerType != null) 'triggerType': triggerType.toString(),
+    'priority': priority.toString(),
+  };
 }

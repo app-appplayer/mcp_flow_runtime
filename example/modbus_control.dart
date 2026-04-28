@@ -88,7 +88,7 @@ void main() async {
         'steps': [
           // Read tank level (Holding Register 40001)
           {
-            'action': 'modbusRead',
+            'action': 'modbus.readHoldingRegisters',
             'params': {
               'connection': 'plc_connection',
               'type': 'holding',
@@ -107,7 +107,7 @@ void main() async {
           },
           // Read pump status (Coils 1-2)
           {
-            'action': 'modbusRead',
+            'action': 'modbus.readCoils',
             'params': {
               'connection': 'plc_connection',
               'type': 'coil',
@@ -118,7 +118,7 @@ void main() async {
           },
           // Read flow rate (Input Register 30001)
           {
-            'action': 'modbusRead',
+            'action': 'modbus.readInputRegisters',
             'params': {
               'connection': 'plc_connection',
               'type': 'input',
@@ -204,7 +204,7 @@ void main() async {
                   },
                   'then': [
                     {
-                      'action': 'modbusWrite',
+                      'action': 'modbus.writeMultipleCoils',
                       'params': {
                         'connection': 'plc_connection',
                         'type': 'coil',
@@ -236,7 +236,7 @@ void main() async {
                   },
                   'then': [
                     {
-                      'action': 'modbusWrite',
+                      'action': 'modbus.writeMultipleCoils',
                       'params': {
                         'connection': 'plc_connection',
                         'type': 'coil',
@@ -261,7 +261,7 @@ void main() async {
                   },
                   'then': [
                     {
-                      'action': 'modbusWrite',
+                      'action': 'modbus.writeMultipleCoils',
                       'params': {
                         'connection': 'plc_connection',
                         'type': 'coil',
@@ -314,7 +314,7 @@ void main() async {
         },
         'steps': [
           {
-            'action': 'gpioWrite',
+            'action': 'gpio.write',
             'params': {
               'pin': 25,
               'value': '=alarm_active'
@@ -356,7 +356,7 @@ void main() async {
         'steps': [
           // Stop all pumps immediately
           {
-            'action': 'modbusWrite',
+            'action': 'modbus.writeMultipleCoils',
             'params': {
               'connection': 'plc_connection',
               'type': 'coil',

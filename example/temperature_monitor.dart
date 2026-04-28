@@ -78,7 +78,7 @@ void main() async {
         'steps': [
           // Read temperature from I2C sensor
           {
-            'action': 'i2cRead',
+            'action': 'i2c.read',
             'params': {
               'bus': 1,
               'address': 0x48,
@@ -173,7 +173,7 @@ void main() async {
           },
           // Set PWM duty cycle for fan
           {
-            'action': 'pwmWrite',
+            'action': 'pwm.set',
             'params': {
               'channel': 0,
               'dutyCycle': '=fan_speed / 100'
@@ -189,7 +189,7 @@ void main() async {
           },
           // Control status LED
           {
-            'action': 'gpioWrite',
+            'action': 'gpio.write',
             'params': {
               'pin': 22,
               'value': '=high_temp_alert'
