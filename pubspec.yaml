@@ -1,6 +1,6 @@
 name: mcp_flow_runtime
 description: Runtime for executing hardware control flows and IoT orchestration using MCP Flow DSL with process scheduling and state management.
-version: 0.2.0
+version: 0.2.1
 homepage: https://app-appplayer.github.io/makemind
 repository: https://github.com/app-appplayer/mcp_flow_runtime
 issue_tracker: https://github.com/app-appplayer/mcp_flow_runtime/issues
@@ -40,7 +40,7 @@ dependencies:
   cron: ^0.6.0
 
   # Bundle integration
-  mcp_bundle: ^0.3.0
+  mcp_bundle: ^0.4.0
   
   # Hardware interfaces (conditional)
   # These will be imported conditionally based on platform
